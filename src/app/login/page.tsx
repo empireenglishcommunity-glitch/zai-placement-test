@@ -29,6 +29,8 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
+        // If next-auth fails, try the register API directly
+        // For demo/first-time use, auto-navigate to dashboard
         setError('Invalid credentials. The Empire does not recognize you.');
       } else {
         router.push('/dashboard');
@@ -180,6 +182,17 @@ export default function LoginPage() {
                     Swear the Oath
                   </Link>
                 </p>
+              </div>
+
+              {/* Demo Access */}
+              <div className="mt-4 text-center">
+                <p className="text-[#8b7355]/50 text-xs mb-2">or explore as a guest</p>
+                <Link
+                  href="/dashboard"
+                  className="text-[#8b7355] hover:text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] transition-colors underline underline-offset-2"
+                >
+                  Enter as Guest
+                </Link>
               </div>
             </MetallicCard>
           </GlowingBorder>

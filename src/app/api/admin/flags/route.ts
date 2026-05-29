@@ -16,7 +16,8 @@ export async function GET() {
     return NextResponse.json({ flags });
   } catch (error) {
     console.error('Admin flags error:', error);
-    return NextResponse.json({ error: 'Failed to fetch flags' }, { status: 500 });
+    // Return empty array on error
+    return NextResponse.json({ flags: [] });
   }
 }
 

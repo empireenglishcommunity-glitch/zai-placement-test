@@ -792,7 +792,12 @@ export default function AdminDashboardPage() {
                 <BookOpen className="w-8 h-8 text-[#c9a84c] mx-auto mb-3" />
                 <h4 className="font-[family-name:var(--font-heading)] font-semibold text-[#e8e8e8] mb-2">View All Questions</h4>
                 <p className="text-[#8b7355] text-xs mb-4">Browse and manage the question bank</p>
-                <ImperialButton variant="secondary" size="sm">
+                <ImperialButton variant="secondary" size="sm" onClick={() => {
+                  fetch('/api/questions?module=vocabulary')
+                    .then(r => r.json())
+                    .then(data => alert(`Question Bank:\n\nVocabulary: ${data.questions?.length ?? 0} questions\n\nVisit /api/questions?module=vocabulary to see all.`))
+                    .catch(() => alert('Failed to load questions.'));
+                }}>
                   Question Bank
                 </ImperialButton>
               </MetallicCard>
@@ -801,7 +806,16 @@ export default function AdminDashboardPage() {
                 <Download className="w-8 h-8 text-[#cd7f32] mx-auto mb-3" />
                 <h4 className="font-[family-name:var(--font-heading)] font-semibold text-[#e8e8e8] mb-2">Export Data</h4>
                 <p className="text-[#8b7355] text-xs mb-4">Download reports and analytics data</p>
-                <ImperialButton variant="secondary" size="sm">
+                <ImperialButton variant="secondary" size="sm" onClick={() => {
+                  const data = { students: students.length, flags: flags.length, analytics: displayAnalytics };
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'empire-analytics-export.json';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}>
                   Export
                 </ImperialButton>
               </MetallicCard>
@@ -810,7 +824,7 @@ export default function AdminDashboardPage() {
                 <Shield className="w-8 h-8 text-[#ff6b35] mx-auto mb-3" />
                 <h4 className="font-[family-name:var(--font-heading)] font-semibold text-[#e8e8e8] mb-2">Manage Question Bank</h4>
                 <p className="text-[#8b7355] text-xs mb-4">Create, edit, and organize questions</p>
-                <ImperialButton variant="secondary" size="sm">
+                <ImperialButton variant="secondary" size="sm" onClick={() => alert('Question Bank Management coming soon. Use the API endpoints at /api/questions to manage questions programmatically.')}>
                   Manage
                 </ImperialButton>
               </MetallicCard>

@@ -12,6 +12,7 @@ import {
 } from '@/components/empire';
 import { MODULE_INFO } from '@/lib/constants';
 import type { ModuleType } from '@/lib/types';
+import Link from 'next/link';
 import { Swords, Headphones, BookOpen, Shield, Mic, Volume2, Lock, CheckCircle, ChevronRight } from 'lucide-react';
 
 // ─── Module Card Data ────────────────────────────────────────
@@ -199,12 +200,14 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
               Locked
             </ImperialButton>
           ) : (
-            <GlowingBorder intensity="medium" color={data.color === '#c9a84c' ? 'gold' : data.color === '#cd7f32' ? 'bronze' : 'fire'}>
-              <ImperialButton variant="primary" size="md" className="w-full">
-                Begin Trial
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </ImperialButton>
-            </GlowingBorder>
+            <Link href={`/assessment/${data.module}`} className="block">
+              <GlowingBorder intensity="medium" color={data.color === '#c9a84c' ? 'gold' : data.color === '#cd7f32' ? 'bronze' : 'fire'}>
+                <ImperialButton variant="primary" size="md" className="w-full">
+                  Begin Trial
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </ImperialButton>
+              </GlowingBorder>
+            </Link>
           )}
         </div>
       </MetallicCard>
@@ -371,10 +374,12 @@ export default function AssessmentPage() {
               <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg italic mb-8">
                 Select a trial above and begin your journey. The Empire awaits those with the courage to test their command of English.
               </p>
-              <ImperialButton variant="primary" size="lg">
-                Begin with Vocabulary
-                <ChevronRight className="w-5 h-5 ml-2" />
-              </ImperialButton>
+              <Link href="/assessment/vocabulary">
+                <ImperialButton variant="primary" size="lg">
+                  Begin with Vocabulary
+                  <ChevronRight className="w-5 h-5 ml-2" />
+                </ImperialButton>
+              </Link>
             </MetallicCard>
           </GlowingBorder>
         </motion.div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, SectionDivider, ImperialRankBadge, ProgressBar, TacticalPanel, GlowingBorder } from '@/components/empire';
 import { Swords, Shield, BookOpen, Headphones } from 'lucide-react';
 
@@ -85,14 +86,18 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <GlowingBorder intensity="high">
-              <ImperialButton variant="primary" size="lg">
-                Begin Your Trials
+            <Link href="/register">
+              <GlowingBorder intensity="high">
+                <ImperialButton variant="primary" size="lg">
+                  Begin Your Trials
+                </ImperialButton>
+              </GlowingBorder>
+            </Link>
+            <a href="#trials">
+              <ImperialButton variant="outline" size="lg">
+                Learn More
               </ImperialButton>
-            </GlowingBorder>
-            <ImperialButton variant="outline" size="lg">
-              Learn More
-            </ImperialButton>
+            </a>
           </div>
         </motion.div>
 
@@ -103,7 +108,7 @@ export default function Home() {
       <SectionDivider />
 
       {/* ── The Four Trials ─────────────────────────────── */}
-      <section className="relative z-10 px-4 py-16">
+      <section id="trials" className="relative z-10 px-4 py-16">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0 }}
@@ -244,9 +249,11 @@ export default function Home() {
               <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg italic mb-8">
                 Enter the gates. Face the Four Trials. Claim your Imperial Rank.
               </p>
-              <ImperialButton variant="primary" size="lg">
-                Join the Empire
-              </ImperialButton>
+              <Link href="/register">
+                <ImperialButton variant="primary" size="lg">
+                  Join the Empire
+                </ImperialButton>
+              </Link>
             </MetallicCard>
           </GlowingBorder>
         </motion.div>
