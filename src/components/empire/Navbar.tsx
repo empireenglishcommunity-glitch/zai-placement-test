@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Shield, Swords, Home } from 'lucide-react';
+import Image from 'next/image';
 import { ImperialButton } from './ImperialButton';
 
 const navLinks = [
@@ -21,7 +22,14 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">⚔️</span>
+            <Image
+              src="/logo.png"
+              alt="Empire English Community"
+              width={36}
+              height={36}
+              className="object-contain"
+              priority
+            />
             <span className="font-[family-name:var(--font-heading)] font-bold text-[#c9a84c] text-lg tracking-wider group-hover:text-[#e8d48b] transition-colors">
               EMPIRE
             </span>

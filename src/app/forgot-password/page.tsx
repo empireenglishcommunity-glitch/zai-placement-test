@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
 import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, GlowingBorder } from '@/components/empire';
 
 export default function ForgotPasswordPage() {
@@ -48,11 +49,18 @@ export default function ForgotPasswordPage() {
                 transition={{ delay: 0.3, duration: 0.6 }}
               >
                 <motion.div
-                  className="text-5xl mb-4"
+                  className="mb-4"
                   animate={{ y: [0, -5, 0] }}
                   transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  🔮
+                  <Image
+                    src="/logo.png"
+                    alt="Empire English Community"
+                    width={80}
+                    height={80}
+                    className="object-contain mx-auto"
+                    priority
+                  />
                 </motion.div>
                 <h1 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-2">
                   LOST YOUR PATH?

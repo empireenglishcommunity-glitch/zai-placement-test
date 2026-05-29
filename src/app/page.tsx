@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, SectionDivider, ImperialRankBadge, ProgressBar, TacticalPanel, GlowingBorder } from '@/components/empire';
 import { Swords, Shield, BookOpen, Headphones } from 'lucide-react';
 
@@ -68,11 +69,18 @@ export default function Home() {
         >
           {/* Emblem */}
           <motion.div
-            className="text-6xl sm:text-7xl mb-6"
+            className="mb-6"
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            ⚔️
+            <Image
+              src="/logo.png"
+              alt="Empire English Community"
+              width={120}
+              height={120}
+              className="object-contain mx-auto"
+              priority
+            />
           </motion.div>
 
           <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-wider mb-4">

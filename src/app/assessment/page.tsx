@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import {
   ParticleBackground,
   Navbar,
@@ -233,11 +234,18 @@ export default function AssessmentPage() {
         >
           {/* Emblem */}
           <motion.div
-            className="text-5xl sm:text-6xl mb-6"
+            className="mb-6"
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            ⚔️
+            <Image
+              src="/logo.png"
+              alt="Empire English Community"
+              width={100}
+              height={100}
+              className="object-contain mx-auto"
+              priority
+            />
           </motion.div>
 
           <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-wider mb-4">
