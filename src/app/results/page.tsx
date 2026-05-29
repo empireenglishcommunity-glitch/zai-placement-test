@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -208,9 +208,46 @@ const actionsVariants = {
   },
 };
 
+// ─── Loading Fallback ──────────────────────────────────────
+
+function ResultsLoading() {
+  return (
+    <div className="min-h-screen flex flex-col empire-bg">
+      <ParticleBackground />
+      <Navbar />
+      <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center space-y-6"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+          >
+            <Crown className="w-16 h-16 text-[#c9a84c] mx-auto" />
+          </motion.div>
+          <div>
+            <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mb-2">
+              Consulting the Imperial Archives
+            </h2>
+            <p className="text-[#8b7355] font-[family-name:var(--font-sans)]">
+              Analyzing your trial results...
+            </p>
+          </div>
+          <Loader2 className="w-6 h-6 text-[#c9a84c] mx-auto animate-spin" />
+        </motion.div>
+      </main>
+      <div className="mt-auto">
+        <Footer />
+      </div>
+    </div>
+  );
+}
+
 // ─── Page Component ───────────────────────────────────────
 
-export default function ResultsPage() {
+function ResultsContent() {
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get('assessmentId');
 
@@ -794,5 +831,15 @@ export default function ResultsPage() {
         <Footer />
       </div>
     </div>
+  );
+}
+
+// ─── Default Export with Suspense Boundary ────────────────
+// useSearchParams() requires a Suspense boundary in Next.js 14+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<ResultsLoading />}>
+      <ResultsContent />
+    </Suspense>
   );
 }
