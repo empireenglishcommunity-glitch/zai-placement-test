@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Mic,
   Headphones,
@@ -21,6 +22,8 @@ import {
   ArrowRight,
   Loader2,
   Crown,
+  Download,
+  Mail,
 } from 'lucide-react';
 import {
   ParticleBackground,
@@ -33,6 +36,8 @@ import {
   SectionDivider,
   ImperialButton,
   GlowingBorder,
+  EmpireCertificate,
+  CelebrationAnimation,
 } from '@/components/empire';
 import { MODULE_INFO } from '@/lib/constants';
 import {
@@ -250,11 +255,16 @@ function ResultsLoading() {
 function ResultsContent() {
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get('assessmentId');
+  const { data: session } = useSession();
 
   const [results, setResults] = useState<ResultsData | null>(assessmentId ? null : mockResults);
   const [loading, setLoading] = useState(!!assessmentId);
   const [error, setError] = useState<string | null>(null);
   const [showCeremony, setShowCeremony] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
 
   // Load results from API when assessmentId is provided
   useEffect(() => {
@@ -303,10 +313,39 @@ function ResultsContent() {
   // Trigger ceremony animation after results are loaded
   useEffect(() => {
     if (results) {
-      const timer = setTimeout(() => setShowCeremony(true), 100);
-      return () => clearTimeout(timer);
+      // Show celebration animation first
+      setShowCelebration(true);
     }
   }, [results]);
+
+  // Send results email after celebration completes
+  const handleCelebrationComplete = useCallback(() => {
+    setShowCelebration(false);
+    setShowCeremony(true);
+
+    // Auto-send email if user is logged in
+    if (session?.user && results && !emailSent) {
+      setEmailSending(true);
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: session.user.name || session.user.email || 'Student',
+          studentEmail: session.user.email,
+          speakingScore: results.speakingScore,
+          listeningScore: results.listeningScore,
+          vocabularyScore: results.vocabularyScore,
+          grammarScore: results.grammarScore,
+          finalLevel: results.levelAssignment.finalLevel,
+          completionTimestamp: new Date().toISOString(),
+        }),
+      })
+        .then((res) => res.json())
+        .then(() => setEmailSent(true))
+        .catch(() => {/* Email sending failed silently */})
+        .finally(() => setEmailSending(false));
+    }
+  }, [session, results, emailSent]);
 
   if (loading) {
     return (
@@ -348,10 +387,22 @@ function ResultsContent() {
   const { levelAssignment: assignment } = results;
   const finalColor = getLevelColor(assignment.finalLevel);
 
+  // Celebration Animation Overlay
+  const celebrationOverlay = showCelebration && results ? (
+    <CelebrationAnimation
+      rankName={IMPERIAL_RANKS[assignment.finalLevel]}
+      finalLevel={assignment.finalLevel}
+      onComplete={handleCelebrationComplete}
+    />
+  ) : null;
+
   return (
     <div className="min-h-screen flex flex-col empire-bg">
       <EnhancedParticleBackground />
       <Navbar />
+
+      {/* Celebration Animation Overlay */}
+      {celebrationOverlay}
 
       <main className="flex-1 relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         <AnimatePresence mode="wait">
@@ -804,6 +855,59 @@ function ResultsContent() {
                       </span>
                     </ImperialButton>
                   </Link>
+                </motion.div>
+              )}
+
+              <SectionDivider />
+
+              {/* ═══ Empire Certificate ═══ */}
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="space-y-6"
+              >
+                <div className="text-center mb-4">
+                  <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-3">
+                    YOUR IMPERIAL CERTIFICATE
+                  </h2>
+                  <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm italic max-w-md mx-auto">
+                    A testament to your achievement in the Four Trials. Download and share your imperial recognition.
+                  </p>
+                </div>
+
+                <div className="max-w-3xl mx-auto">
+                  <EmpireCertificate
+                    studentName={session?.user?.name || session?.user?.email || 'Warrior'}
+                    rankName={IMPERIAL_RANKS[assignment.finalLevel]}
+                    finalLevel={assignment.finalLevel}
+                    speakingScore={results.speakingScore}
+                    listeningScore={results.listeningScore}
+                    vocabularyScore={results.vocabularyScore}
+                    grammarScore={results.grammarScore}
+                  />
+                </div>
+              </motion.section>
+
+              {/* ═══ Email Status ═══ */}
+              {session?.user && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                  className="text-center py-4"
+                >
+                  {emailSending ? (
+                    <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider flex items-center justify-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Sending your results to the Imperial Archives...
+                    </p>
+                  ) : emailSent ? (
+                    <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-xs tracking-wider flex items-center justify-center gap-2">
+                      <Mail className="w-3 h-3" />
+                      Results have been sent to your email
+                    </p>
+                  ) : null}
                 </motion.div>
               )}
             </motion.div>

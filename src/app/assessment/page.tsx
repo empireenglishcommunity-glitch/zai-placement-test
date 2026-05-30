@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { Crown, Loader2 } from 'lucide-react';
 import {
   ParticleBackground,
   Navbar,
@@ -219,6 +221,44 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
 // ─── Main Assessment Hub Page ────────────────────────────────
 
 export default function AssessmentPage() {
+  const { isLoading, isAuthenticated } = useAuthGuard();
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col empire-bg">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center space-y-6"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            >
+              <Crown className="w-16 h-16 text-[#c9a84c] mx-auto" />
+            </motion.div>
+            <div>
+              <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mb-2">
+                Verifying Your Identity
+              </h2>
+              <p className="text-[#8b7355] font-[family-name:var(--font-sans)]">
+                The Empire must confirm your allegiance...
+              </p>
+            </div>
+            <Loader2 className="w-6 h-6 text-[#c9a84c] mx-auto animate-spin" />
+          </motion.div>
+        </main>
+        <div className="mt-auto">
+          <Footer />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col empire-bg">
       <ParticleBackground />

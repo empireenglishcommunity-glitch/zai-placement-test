@@ -64,7 +64,8 @@ export default function RegisterPage() {
         // Registration succeeded but auto-login failed — redirect to login
         router.push('/login');
       } else {
-        router.push('/dashboard');
+        // First-time registration → show cinematic welcome
+        router.push('/welcome');
       }
     } catch {
       setError('An error occurred. The gates are temporarily sealed.');
