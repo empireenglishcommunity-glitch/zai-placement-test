@@ -18,7 +18,7 @@ export function Footer() {
               MACAL EMPIRE
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center">
             <Link
               href="/terms"
               className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider hover:text-[#c9a84c] transition-colors"
@@ -26,12 +26,19 @@ export function Footer() {
               Terms of Service
             </Link>
             <span className="text-[rgba(201,168,76,0.2)]">|</span>
+            <Link
+              href="/privacy"
+              className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider hover:text-[#c9a84c] transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-[rgba(201,168,76,0.2)]">|</span>
             <p className="text-[#8b7355] text-sm font-[family-name:var(--font-heading)]">
               Forged in Language. Crowned in Mastery.
             </p>
           </div>
           <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">
-            © {new Date().getFullYear()} MACAL EMPIRE. All rights reserved.
+            &copy; {new Date().getFullYear()} MACAL EMPIRE. All rights reserved.
           </p>
         </div>
       </div>

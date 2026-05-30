@@ -156,11 +156,19 @@ export default function TermsOfServicePage() {
             className="text-center py-8 space-y-4"
           >
             <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-lg tracking-wider">
-              © MACAL EMPIRE. All rights reserved.
+              &copy; MACAL EMPIRE. All rights reserved.
             </p>
             <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm italic">
               Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
+            <div className="pt-2">
+              <Link
+                href="/privacy"
+                className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm hover:text-[#e8d48b] underline underline-offset-2 transition-colors"
+              >
+                Read our Privacy Policy
+              </Link>
+            </div>
             <div className="pt-4">
               <Link href="/register">
                 <ImperialButton variant="primary" size="lg">

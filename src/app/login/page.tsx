@@ -195,6 +195,23 @@ export default function LoginPage() {
                 </p>
               </div>
 
+              {/* Legal Links */}
+              <div className="mt-4 flex items-center justify-center gap-3 text-xs">
+                <Link
+                  href="/terms"
+                  className="text-[#8b7355] hover:text-[#c9a84c] font-[family-name:var(--font-heading)] transition-colors"
+                >
+                  Terms of Service
+                </Link>
+                <span className="text-[rgba(201,168,76,0.2)]">|</span>
+                <Link
+                  href="/privacy"
+                  className="text-[#8b7355] hover:text-[#c9a84c] font-[family-name:var(--font-heading)] transition-colors"
+                >
+                  Privacy Policy
+                </Link>
+              </div>
+
               {/* Demo Access */}
               <div className="mt-4 text-center">
                 <p className="text-[#8b7355]/50 text-xs mb-2">or explore as a guest</p>

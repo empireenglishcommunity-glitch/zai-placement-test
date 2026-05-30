@@ -20,6 +20,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,13 +263,39 @@ export default function RegisterPage() {
                   </label>
                 </div>
 
+                {/* Privacy Policy Checkbox */}
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPrivacyAgreed(!privacyAgreed)}
+                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0 ${
+                      privacyAgreed
+                        ? 'border-[#c9a84c] bg-[#c9a84c]'
+                        : 'border-[rgba(201,168,76,0.4)] bg-transparent hover:border-[#c9a84c]'
+                    }`}
+                    aria-label="Agree to Privacy Policy"
+                  >
+                    {privacyAgreed && (
+                      <svg className="w-3 h-3 text-[#0a0a0a]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                  <label className="font-[family-name:var(--font-sans)] text-[#e8e0d0] text-sm leading-relaxed cursor-pointer" onClick={() => setPrivacyAgreed(!privacyAgreed)}>
+                    I have read and agree to the{' '}
+                    <Link href="/privacy" target="_blank" className="text-[#c9a84c] hover:text-[#e8d48b] underline underline-offset-2 transition-colors">
+                      Privacy Policy
+                    </Link>
+                  </label>
+                </div>
+
                 {/* Submit */}
                 <ImperialButton
                   type="submit"
                   variant="primary"
                   size="lg"
                   className="w-full"
-                  disabled={isLoading || !termsAgreed}
+                  disabled={isLoading || !termsAgreed || !privacyAgreed}
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
