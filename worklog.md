@@ -1,5 +1,68 @@
 # Empire English Community — Worklog
 
+## Task 14: MACAL EMPIRE Terms of Service & Copyright Protection
+**Agent**: main-agent | **Status**: ✅ Complete
+
+### Files Created
+1. **`src/app/terms/page.tsx`** — Full Terms of Service page with 5 legal sections
+2. **`src/app/api/terms/route.ts`** — API route for accepting & checking terms (POST + GET)
+3. **`src/components/empire/TermsAcceptanceGate.tsx`** — Cinematic terms acceptance overlay gate
+4. **`src/hooks/useTermsGuard.ts`** — Hook that checks terms acceptance status
+
+### Files Modified
+1. **`prisma/schema.prisma`** — Added `termsAccepted` (Boolean) + `termsAcceptedAt` (DateTime?) to Profile model
+2. **`src/components/empire/Footer.tsx`** — Updated to "© MACAL EMPIRE. All rights reserved." + Terms link
+3. **`src/components/empire/Navbar.tsx`** — Added "Terms" nav link with Scroll icon
+4. **`src/components/empire/index.ts`** — Added TermsAcceptanceGate export
+5. **`src/app/register/page.tsx`** — Added terms checkbox + MACAL EMPIRE branding
+6. **`src/app/login/page.tsx`** — Added MACAL EMPIRE branding
+7. **`src/app/assessment/page.tsx`** — Added terms guard (gate shows if not accepted) + protected-content class
+8. **`src/app/assessment/vocabulary/page.tsx`** — Added protected-content class
+9. **`src/app/assessment/listening/page.tsx`** — Added protected-content class
+10. **`src/app/assessment/speaking/page.tsx`** — Added protected-content class
+11. **`src/app/assessment/grammar/page.tsx`** — Added protected-content class
+12. **`src/app/globals.css`** — Added `.protected-content` CSS (user-select: none with input exceptions)
+
+### Terms of Service Page Content
+1. **Ownership Declaration** — Platform owned by MACAL EMPIRE, all content proprietary, trademarks protected
+2. **User Agreement** — No copying, no reverse engineering, no content redistribution, unauthorized use prohibited
+3. **Liability Statement** — Access restriction rights, "as is" basis, no warranties, damage limitations
+4. **Data & Privacy** — Data collection consent, admin review rights, fraud detection
+5. **Governing Law** — Legal jurisdiction, right to update terms
+
+### Terms Acceptance Flow
+- **Registration**: Checkbox "I agree to the MACAL EMPIRE Terms of Service" required before submit (disabled button until checked)
+- **Login**: After login, assessment page checks `/api/terms` for acceptance status
+- **If not accepted**: Cinematic `TermsAcceptanceGate` overlay appears before assessment access
+- **Acceptance stored**: `Profile.termsAccepted` (Boolean) + `termsAcceptedAt` (DateTime) in SQLite
+- **Persistent**: Once accepted, never asks again
+
+### Footer Copyright Update
+- Changed from "© Empire English Community" to "© MACAL EMPIRE. All rights reserved."
+- Added "Terms of Service" link in footer
+- Logo text changed to "MACAL EMPIRE"
+
+### Copy-Protection Deterrent
+- `.protected-content` CSS class disables text selection on assessment pages
+- Input fields and textareas remain selectable (accessibility preserved)
+- Applied to: assessment hub, vocabulary, grammar, listening, speaking pages
+- Non-intrusive — only visual deterrent, not full security
+
+### Branding Consistency
+- **Login**: "MACAL EMPIRE" sub-heading added under "ENTER THE EMPIRE"
+- **Register**: "MACAL EMPIRE" sub-heading added under "SWEAR THE OATH"
+- **Terms page**: Full MACAL EMPIRE branding throughout
+- **Footer**: MACAL EMPIRE name + copyright on all pages
+- **Certificate**: Already has MACAL EMPIRE branding (from previous task)
+- **Email templates**: Already have MACAL EMPIRE branding (from previous task)
+
+### API: `/api/terms`
+- **GET**: Returns `{ termsAccepted: boolean }` — checks current user's profile
+- **POST**: Sets `termsAccepted: true` + `termsAcceptedAt: now()` — requires authentication
+
+### Build Status
+✅ Next.js build passes | ✅ All routes working | ✅ Database migrated | ✅ Netlify compatible
+
 ## Task 13: Immersive Empire Sound Experience — Cinematic Audio System
 **Agent**: main-agent | **Status**: ✅ Complete
 

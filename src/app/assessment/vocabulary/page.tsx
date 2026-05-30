@@ -348,7 +348,7 @@ export default function VocabularyAssessmentPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
         <ParticleBackground />
         <Navbar />
         <main className="flex-1 flex items-center justify-center pt-16 relative z-10">
@@ -380,7 +380,7 @@ export default function VocabularyAssessmentPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
         <ParticleBackground />
         <Navbar />
         <main className="flex-1 flex items-center justify-center pt-16 relative z-10">
@@ -404,7 +404,7 @@ export default function VocabularyAssessmentPage() {
 
   if (phase === 'intro') {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
         <ParticleBackground />
         <Navbar />
         <main className="flex-1 pt-20 pb-12 relative z-10">
@@ -562,7 +562,7 @@ export default function VocabularyAssessmentPage() {
     const correctAnswer = currentQuestion.correctAnswer;
 
     return (
-      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
         <ParticleBackground />
         <Navbar />
         <main className="flex-1 pt-20 pb-12 relative z-10">
@@ -788,7 +788,7 @@ export default function VocabularyAssessmentPage() {
 
   if (phase === 'results') {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
         <ParticleBackground />
         <Navbar />
         <main className="flex-1 pt-20 pb-12 relative z-10">

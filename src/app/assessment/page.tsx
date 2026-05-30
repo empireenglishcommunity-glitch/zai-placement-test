@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { useTermsGuard } from '@/hooks/useTermsGuard';
 import { Crown, Loader2 } from 'lucide-react';
 import {
   ParticleBackground,
@@ -12,6 +13,7 @@ import {
   ImperialButton,
   SectionDivider,
   GlowingBorder,
+  TermsAcceptanceGate,
 } from '@/components/empire';
 import { MODULE_INFO } from '@/lib/constants';
 import type { ModuleType } from '@/lib/types';
@@ -222,6 +224,7 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
 
 export default function AssessmentPage() {
   const { isLoading, isAuthenticated } = useAuthGuard();
+  const { termsAccepted, showTermsGate, acceptTerms } = useTermsGuard();
 
   // Show loading while checking auth
   if (isLoading) {
@@ -259,8 +262,22 @@ export default function AssessmentPage() {
     );
   }
 
+  // Show terms acceptance gate if not accepted
+  if (showTermsGate) {
+    return (
+      <div className="min-h-screen flex flex-col empire-bg">
+        <ParticleBackground />
+        <Navbar />
+        <TermsAcceptanceGate onAccepted={acceptTerms} />
+        <div className="mt-auto">
+          <Footer />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col empire-bg">
+    <div className="min-h-screen flex flex-col empire-bg protected-content">
       <ParticleBackground />
       <Navbar />
 

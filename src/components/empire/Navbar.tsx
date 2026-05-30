@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Shield, Swords, Home } from 'lucide-react';
+import { Menu, X, Shield, Swords, Home, Scroll } from 'lucide-react';
 import Image from 'next/image';
 import { ImperialButton } from './ImperialButton';
 
@@ -11,6 +11,7 @@ const navLinks = [
   { href: '/', label: 'Hall', icon: Home },
   { href: '/dashboard', label: 'Dashboard', icon: Shield },
   { href: '/assessment', label: 'Trials', icon: Swords },
+  { href: '/terms', label: 'Terms', icon: Scroll },
 ];
 
 export function Navbar() {

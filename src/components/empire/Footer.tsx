@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 export function Footer() {
   return (
@@ -8,20 +9,29 @@ export function Footer() {
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
-              alt="Empire English Community"
+              alt="MACAL EMPIRE"
               width={28}
               height={28}
               className="object-contain"
             />
             <span className="font-[family-name:var(--font-heading)] font-bold text-[#c9a84c] tracking-wider">
-              EMPIRE ENGLISH COMMUNITY
+              MACAL EMPIRE
             </span>
           </div>
-          <p className="text-[#8b7355] text-sm font-[family-name:var(--font-heading)]">
-            Forged in Language. Crowned in Mastery.
-          </p>
-          <p className="text-[#8b7355] text-xs">
-            © {new Date().getFullYear()} Empire English Community. All rights reserved.
+          <div className="flex items-center gap-4">
+            <Link
+              href="/terms"
+              className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider hover:text-[#c9a84c] transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <span className="text-[rgba(201,168,76,0.2)]">|</span>
+            <p className="text-[#8b7355] text-sm font-[family-name:var(--font-heading)]">
+              Forged in Language. Crowned in Mastery.
+            </p>
+          </div>
+          <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">
+            © {new Date().getFullYear()} MACAL EMPIRE. All rights reserved.
           </p>
         </div>
       </div>

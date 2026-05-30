@@ -81,6 +81,9 @@ export default function LoginPage() {
                 <h1 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-2">
                   ENTER THE EMPIRE
                 </h1>
+                <p className="font-[family-name:var(--font-heading)] text-[8px] sm:text-[10px] tracking-[0.4em] uppercase text-[#8b7355] mb-2">
+                  MACAL EMPIRE
+                </p>
                 <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm italic">
                   The gates stand open for those who dare to enter.
                 </p>

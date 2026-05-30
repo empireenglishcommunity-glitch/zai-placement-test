@@ -241,7 +241,7 @@ export default function GrammarAssessmentPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen flex flex-col"
+      className="min-h-screen flex flex-col protected-content"
     >
       <Navbar />
       <ParticleBackground />

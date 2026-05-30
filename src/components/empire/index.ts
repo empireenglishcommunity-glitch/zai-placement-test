@@ -16,3 +16,4 @@ export { EmpireAudioOverlay } from './EmpireAudioOverlay';
 export { EmpireAudioControls } from './EmpireAudioControls';
 export { EmpireCertificate } from './EmpireCertificate';
 export { CelebrationAnimation } from './CelebrationAnimation';
+export { TermsAcceptanceGate } from './TermsAcceptanceGate';

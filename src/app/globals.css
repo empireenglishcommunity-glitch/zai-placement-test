@@ -245,3 +245,21 @@
   border-radius: 2px;
   background: rgba(201, 168, 76, 0.15);
 }
+
+/* Copy-protection deterrent on assessment & content pages */
+.protected-content {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow selection in input fields and textareas even within protected sections */
+.protected-content input,
+.protected-content textarea,
+.protected-content [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
