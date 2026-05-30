@@ -42,7 +42,19 @@ interface ApiQuestion {
   options: string[];
   correctAnswer: number;
   difficulty: number;
-  isActive: boolean;
+  isActive?: boolean;
+  _displayOrder?: number;
+  _optionMapping?: number[];
+  _originalCorrectAnswer?: number;
+}
+
+interface SessionData {
+  id: string;
+  module: string;
+  attemptNumber: number;
+  seed: number;
+  questions: ApiQuestion[];
+  isResumed: boolean;
 }
 
 interface TopicScore {
@@ -104,6 +116,10 @@ export default function GrammarAssessmentPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
 
+  // Session
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [attemptNumber, setAttemptNumber] = useState(1);
+
   // Loading / error
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,42 +129,65 @@ export default function GrammarAssessmentPage() {
   const [level, setLevel] = useState<ImperialLevel>(0);
   const [topicScores, setTopicScores] = useState<Record<string, TopicScore>>({});
 
-  // Fetch questions
-  const fetchQuestions = useCallback(async () => {
+  // Get userId from storage
+  const getUserId = useCallback((): string => {
+    if (typeof window === 'undefined') return 'demo-user';
+    try {
+      return localStorage.getItem('userId') || sessionStorage.getItem('userId') || 'demo-user';
+    } catch {
+      return 'demo-user';
+    }
+  }, []);
+
+  // Fetch session from Dynamic Assessment Engine
+  const fetchQuestions = useCallback(async (forceNew = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/questions?module=grammar');
-      if (!res.ok) throw new Error('Failed to fetch questions');
+      const userId = getUserId();
+      const res = await fetch('/api/assessment/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, module: 'grammar', forceNew }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Failed to create assessment session');
+      }
       const data = await res.json();
-      if (!data.questions || data.questions.length === 0) {
+      const session: SessionData = data.session;
+      if (!session.questions || session.questions.length === 0) {
         throw new Error('No grammar questions available');
       }
-      // Sort questions by topic order matching GRAMMAR_CONFIG
-      const topicOrder = Object.keys(GRAMMAR_CONFIG.topics);
-      const sorted = [...data.questions].sort((a: ApiQuestion, b: ApiQuestion) => {
-        const idxA = topicOrder.indexOf(a.topic ?? '');
-        const idxB = topicOrder.indexOf(b.topic ?? '');
-        if (idxA !== idxB) return idxA - idxB;
-        return (a.difficulty ?? 1) - (b.difficulty ?? 1);
-      });
-      setQuestions(sorted);
+      setSessionId(session.id);
+      setAttemptNumber(session.attemptNumber);
+      // Questions are already shuffled by the session engine — use as-is
+      setQuestions(session.questions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getUserId]);
 
   useEffect(() => {
     if (phase === 'questions' && questions.length === 0) {
-      fetchQuestions();
+      fetchQuestions(false);
     }
   }, [phase, questions.length, fetchQuestions]);
 
-  // Begin trial
+  // Begin trial — forceNew when retrying (sessionId was previously set)
   const handleBegin = () => {
-    setPhase('questions');
+    const isRetry = attemptNumber > 1 || sessionId !== null;
+    if (isRetry) {
+      setQuestions([]);
+      setSessionId(null);
+      fetchQuestions(true).then(() => {
+        setPhase('questions');
+      });
+    } else {
+      setPhase('questions');
+    }
   };
 
   // Select option
@@ -157,6 +196,19 @@ export default function GrammarAssessmentPage() {
     setSelectedOption(optionIndex);
     setIsAnswered(true);
   };
+
+  // Complete session on the server
+  const completeSession = useCallback(async (sId: string) => {
+    try {
+      await fetch('/api/assessment/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sId }),
+      });
+    } catch (err) {
+      console.error('Failed to complete session:', err);
+    }
+  }, []);
 
   // Next question
   const handleNext = () => {
@@ -178,6 +230,10 @@ export default function GrammarAssessmentPage() {
       // Calculate results
       calculateResults([...answers, newAnswer], questions);
       setPhase('results');
+      // Mark session as completed
+      if (sessionId) {
+        completeSession(sessionId);
+      }
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);
@@ -227,6 +283,8 @@ export default function GrammarAssessmentPage() {
     setPercentage(0);
     setLevel(0);
     setTopicScores({});
+    setSessionId(null);
+    // Next fetchQuestions call will use forceNew: true when triggered from handleBegin after retry
   };
 
   // Current question
@@ -259,9 +317,16 @@ export default function GrammarAssessmentPage() {
             <h1 className="font-[family-name:var(--font-heading)] text-4xl md:text-5xl font-bold text-[#c9a84c] mb-3 tracking-wider">
               Trial of Structure
             </h1>
-            <p className="font-[family-name:var(--font-heading)] text-lg text-[#8b7355] tracking-wide">
-              {MODULE_INFO.grammar.empireTitle}
-            </p>
+            <div className="flex items-center justify-center gap-3">
+              <p className="font-[family-name:var(--font-heading)] text-lg text-[#8b7355] tracking-wide">
+                {MODULE_INFO.grammar.empireTitle}
+              </p>
+              {attemptNumber > 1 && (
+                <span className="px-2.5 py-0.5 rounded-full border border-[rgba(201,168,76,0.4)] bg-[rgba(201,168,76,0.1)] font-[family-name:var(--font-heading)] text-xs text-[#c9a84c] tracking-wide">
+                  Attempt {attemptNumber}
+                </span>
+              )}
+            </div>
           </motion.div>
 
           {/* Atmospheric Description */}
@@ -383,7 +448,7 @@ export default function GrammarAssessmentPage() {
             <MetallicCard hover={false} className="p-8 max-w-md text-center">
               <XCircle className="w-12 h-12 text-[#e74c3c] mx-auto mb-4" />
               <p className="font-[family-name:var(--font-heading)] text-[#e74c3c] text-lg mb-4">{error}</p>
-              <ImperialButton variant="secondary" onClick={fetchQuestions}>
+              <ImperialButton variant="secondary" onClick={() => fetchQuestions(false)}>
                 Try Again
               </ImperialButton>
             </MetallicCard>

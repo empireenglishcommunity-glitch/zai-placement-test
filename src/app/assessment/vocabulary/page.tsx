@@ -124,6 +124,12 @@ export default function VocabularyAssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Session tracking
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [attemptNumber, setAttemptNumber] = useState(1);
+  const [isResumed, setIsResumed] = useState(false);
+  const sessionFetchedRef = useRef(false);
+
   // Timer
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -135,32 +141,51 @@ export default function VocabularyAssessmentPage() {
   const [estimatedVocabSize, setEstimatedVocabSize] = useState(0);
   const [assignedLevel, setAssignedLevel] = useState<ImperialLevel>(0);
 
-  // ─── Fetch Questions ─────────────────────────────────────
+  // ─── Helper: Get User ID ────────────────────────────────
+
+  function getUserId(): string {
+    if (typeof window === 'undefined') return 'demo-user';
+    try {
+      const stored = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+      if (stored) return stored;
+      const sessionData = localStorage.getItem('next-auth.session-token') || sessionStorage.getItem('next-auth.session-token');
+      if (sessionData) return `user-${sessionData.slice(0, 8)}`;
+    } catch {}
+    return 'demo-user';
+  }
+
+  // ─── Fetch Active Session on Load ────────────────────────
 
   useEffect(() => {
-    async function fetchQuestions() {
+    async function checkActiveSession() {
       try {
         setIsLoading(true);
-        const res = await fetch('/api/questions?module=vocabulary');
-        if (!res.ok) throw new Error('Failed to fetch questions');
+        const userId = getUserId();
+        const res = await fetch('/api/assessment/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, module: 'vocabulary' }),
+        });
+        if (!res.ok) throw new Error('Failed to fetch session');
         const data = await res.json();
 
-        // Sort questions by band order, then by difficulty
-        const sorted = (data.questions as ApiQuestion[]).sort((a, b) => {
-          const aIdx = BAND_ORDER.indexOf(a.topic as VocabularyBand);
-          const bIdx = BAND_ORDER.indexOf(b.topic as VocabularyBand);
-          if (aIdx !== bIdx) return aIdx - bIdx;
-          return a.difficulty - b.difficulty;
-        });
-
-        setQuestions(sorted);
+        if (data.session) {
+          setSessionId(data.session.id);
+          setAttemptNumber(data.session.attemptNumber ?? 1);
+          setIsResumed(data.session.isResumed ?? false);
+          // Questions from session are already shuffled — use as-is
+          setQuestions((data.session.questions as ApiQuestion[]) ?? []);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setIsLoading(false);
       }
     }
-    fetchQuestions();
+    if (!sessionFetchedRef.current) {
+      sessionFetchedRef.current = true;
+      checkActiveSession();
+    }
   }, []);
 
   // ─── Timer Management ────────────────────────────────────
@@ -186,14 +211,48 @@ export default function VocabularyAssessmentPage() {
 
   // ─── Start Trial ─────────────────────────────────────────
 
-  const handleStartTrial = useCallback(() => {
-    setPhase('questions');
-    setCurrentIndex(0);
-    setAnswers([]);
-    setSelectedOption(null);
-    setIsAnswered(false);
-    startTimer();
-  }, [startTimer]);
+  const handleStartTrial = useCallback(async () => {
+    // If we already have a resumed session with questions, just start
+    if (isResumed && questions.length > 0 && sessionId) {
+      setPhase('questions');
+      setCurrentIndex(0);
+      setAnswers([]);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      startTimer();
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const userId = getUserId();
+      const res = await fetch('/api/assessment/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, module: 'vocabulary', forceNew: false }),
+      });
+      if (!res.ok) throw new Error('Failed to create session');
+      const data = await res.json();
+
+      if (data.session) {
+        setSessionId(data.session.id);
+        setAttemptNumber(data.session.attemptNumber ?? 1);
+        setIsResumed(data.session.isResumed ?? false);
+        setQuestions((data.session.questions as ApiQuestion[]) ?? []);
+      }
+
+      setPhase('questions');
+      setCurrentIndex(0);
+      setAnswers([]);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      startTimer();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start trial');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startTimer, isResumed, questions.length, sessionId]);
 
   // ─── Select Option ───────────────────────────────────────
 
@@ -212,15 +271,13 @@ export default function VocabularyAssessmentPage() {
   ) => {
     try {
       setIsSubmitting(true);
-      // Try to find or create an assessment session
-      // For now, use a default assessment ID if available
-      const assessmentId = 'demo-assessment';
 
+      // Submit results to assessment API
       await fetch('/api/assessment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assessmentId,
+          assessmentId: sessionId ?? 'demo-assessment',
           module: 'vocabulary',
           answers: answers.map(a => ({
             questionId: a.questionId,
@@ -240,12 +297,21 @@ export default function VocabularyAssessmentPage() {
           },
         }),
       });
+
+      // Mark session as completed via PATCH
+      if (sessionId) {
+        await fetch('/api/assessment/session', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        });
+      }
     } catch {
       // Silently fail — results are shown regardless
     } finally {
       setIsSubmitting(false);
     }
-  }, [answers]);
+  }, [answers, sessionId]);
 
   // ─── Calculate Results ───────────────────────────────────
 
@@ -551,11 +617,11 @@ export default function VocabularyAssessmentPage() {
                 onClick={handleStartTrial}
                 className="gap-2"
               >
-                <span>Begin the Trial</span>
+                <span>{isResumed ? 'Resume the Trial' : 'Begin the Trial'}</span>
                 <ChevronRight className="w-5 h-5" />
               </ImperialButton>
               <p className="text-[#8b7355] text-xs mt-3 font-[family-name:var(--font-sans)]">
-                The words await your command
+                {isResumed ? 'Your previous session has been restored' : 'The words await your command'}
               </p>
             </motion.div>
           </div>
@@ -847,6 +913,16 @@ export default function VocabularyAssessmentPage() {
               >
                 {MODULE_INFO.vocabulary.empireTitle}
               </motion.p>
+              {attemptNumber > 1 && (
+                <motion.p
+                  className="font-[family-name:var(--font-heading)] text-[#8b7355] text-sm mt-1 tracking-wide"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.65 }}
+                >
+                  Attempt #{attemptNumber}
+                </motion.p>
+              )}
             </motion.div>
 
             {/* Level & Vocab Size */}
@@ -1073,13 +1149,46 @@ export default function VocabularyAssessmentPage() {
                 <ImperialButton
                   variant="outline"
                   size="lg"
-                  onClick={() => {
-                    setPhase('intro');
-                    setCurrentIndex(0);
-                    setAnswers([]);
-                    setSelectedOption(null);
-                    setIsAnswered(false);
-                    setElapsedTime(0);
+                  onClick={async () => {
+                    try {
+                      setIsLoading(true);
+                      const userId = getUserId();
+                      const res = await fetch('/api/assessment/session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, module: 'vocabulary', forceNew: true }),
+                      });
+                      if (!res.ok) {
+                        const errData = await res.json().catch(() => null);
+                        if (res.status === 429 && errData?.message) {
+                          setError(errData.message);
+                        }
+                        throw new Error('Failed to create new session');
+                      }
+                      const data = await res.json();
+                      if (data.session) {
+                        setSessionId(data.session.id);
+                        setAttemptNumber(data.session.attemptNumber ?? attemptNumber + 1);
+                        setIsResumed(false);
+                        setQuestions((data.session.questions as ApiQuestion[]) ?? []);
+                      }
+                      setPhase('intro');
+                      setCurrentIndex(0);
+                      setAnswers([]);
+                      setSelectedOption(null);
+                      setIsAnswered(false);
+                      setElapsedTime(0);
+                    } catch {
+                      // If retake fails, still go to intro (may show error)
+                      setPhase('intro');
+                      setCurrentIndex(0);
+                      setAnswers([]);
+                      setSelectedOption(null);
+                      setIsAnswered(false);
+                      setElapsedTime(0);
+                    } finally {
+                      setIsLoading(false);
+                    }
                   }}
                   className="gap-2"
                 >

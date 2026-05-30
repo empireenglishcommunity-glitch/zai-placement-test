@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // EMPIRE ENGLISH COMMUNITY — Scoring Engine Service
 // Converts module scores into Imperial Levels
+// Includes attempt-weighted scoring for anti-score-farming
 // ═══════════════════════════════════════════════════════════
 
 import type { ImperialLevel, LevelAssignment } from '@/lib/types';
@@ -11,6 +12,7 @@ import {
   GRAMMAR_LEVELS,
 } from '@/lib/constants';
 import { IMPERIAL_RANKS } from '@/lib/types';
+import { calculateWeightedScore, type AttemptScore, type WeightedResult } from '@/services/assessment-engine';
 
 // ─── Threshold Lookup ─────────────────────────────────────
 
@@ -127,4 +129,122 @@ export function getLevelColor(level: ImperialLevel): string {
     3: '#ff6b35',
   };
   return colors[level];
+}
+
+// ─── Attempt-Aware Level Assignment ────────────────────────
+// Uses weighted scoring across multiple attempts to prevent
+// score farming. First attempt has highest weight.
+
+export interface AttemptAwareInput {
+  currentScores: ModuleScores;
+  attemptNumber: number;
+  previousAttempts?: AttemptScore[]; // { attemptNumber, score } for the same module
+  module: 'speaking' | 'listening' | 'vocabulary' | 'grammar';
+}
+
+export interface AttemptAwareResult extends LevelAssignment {
+  attemptNumber: number;
+  weightedResult?: WeightedResult;
+  isRetake: boolean;
+  scoreInterpretation: string;
+}
+
+export function calculateAttemptAwareLevel(input: AttemptAwareInput): AttemptAwareResult {
+  const { currentScores, attemptNumber, previousAttempts = [], module } = input;
+  const isRetake = attemptNumber > 1;
+
+  // Calculate current level using the standard engine
+  const currentAssignment = calculateLevelAssignment(currentScores);
+
+  // For first attempt, just return standard result
+  if (!isRetake || previousAttempts.length === 0) {
+    return {
+      ...currentAssignment,
+      attemptNumber,
+      isRetake: false,
+      scoreInterpretation: 'First attempt — this is the most reliable indicator of true ability.',
+    };
+  }
+
+  // For retakes, apply weighted scoring to prevent inflation
+  // Convert module score to a 0-100 percentage for weighting
+  let currentScorePct: number;
+  switch (module) {
+    case 'vocabulary':
+      // Vocabulary uses estimated size, convert to percentage
+      currentScorePct = Math.min(100, Math.round((currentScores.vocabularyScore / 5000) * 100));
+      break;
+    case 'grammar':
+      currentScorePct = currentScores.grammarScore;
+      break;
+    case 'speaking':
+      currentScorePct = currentScores.speakingScore;
+      break;
+    case 'listening':
+      currentScorePct = currentScores.listeningScore;
+      break;
+    default:
+      currentScorePct = 0;
+  }
+
+  const allAttempts: AttemptScore[] = [
+    ...previousAttempts,
+    { attemptNumber, score: currentScorePct },
+  ];
+
+  const weightedResult = calculateWeightedScore(allAttempts);
+
+  // Use the weighted score to determine the final level
+  // This prevents "score farming" — repeated attempts can't inflate rank
+  let weightedLevel: ImperialLevel;
+  let moduleThresholds;
+
+  switch (module) {
+    case 'speaking':
+      moduleThresholds = SPEAKING_LEVELS;
+      break;
+    case 'listening':
+      moduleThresholds = LISTENING_LEVELS;
+      break;
+    case 'vocabulary':
+      moduleThresholds = VOCABULARY_LEVELS;
+      break;
+    case 'grammar':
+      moduleThresholds = GRAMMAR_LEVELS;
+      break;
+  }
+
+  // Find level from weighted score
+  weightedLevel = 0;
+  for (const t of moduleThresholds) {
+    if (weightedResult.weightedScore >= t.min && weightedResult.weightedScore <= t.max) {
+      weightedLevel = t.level;
+      break;
+    }
+  }
+
+  // For vocabulary, the weighted score is a percentage but levels are based on vocab size
+  // We need to convert back: weighted percentage → estimated vocab size → level
+  if (module === 'vocabulary') {
+    const estimatedSizeFromWeighted = Math.round((weightedResult.weightedScore / 100) * 5000);
+    for (const t of VOCABULARY_LEVELS) {
+      if (estimatedSizeFromWeighted >= t.min && estimatedSizeFromWeighted <= t.max) {
+        weightedLevel = t.level;
+        break;
+      }
+    }
+  }
+
+  // The final level is the MINIMUM of current raw level and weighted level
+  // This ensures retakes cannot inflate ranking beyond what the weighted average supports
+  const finalLevel = Math.min(currentAssignment.finalLevel, weightedLevel) as ImperialLevel;
+
+  return {
+    ...currentAssignment,
+    finalLevel,
+    isRetake: true,
+    attemptNumber,
+    weightedResult,
+    scoreInterpretation: weightedResult.interpretation,
+  };
 }

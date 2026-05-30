@@ -201,6 +201,39 @@ model AdminNote {
   @@map("admin_notes")
 }
 
+// ─── Assessment Sessions (Anti-Cheat: Locked Question Sets) ──
+
+model AssessmentSession {
+  id            String   @id @default(cuid())
+  userId        String
+  module        String   // vocabulary, grammar
+  attemptNumber Int      @default(1)
+  questionSet   String   // JSON array of question IDs in order, locked per session
+  optionMapping String   // JSON: { questionId: [shuffled option indices] } for answer remapping
+  seed          Int      // Random seed used for this session (deterministic)
+  status        String   @default("active") // active, completed, abandoned
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  @@index([userId, module])
+  @@index([status])
+  @@map("assessment_sessions")
+}
+
+model QuestionExposure {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  module     String
+  attemptNum Int      // which attempt this question was shown in
+  shownAt    DateTime @default(now())
+
+  @@unique([userId, questionId, attemptNum])
+  @@index([userId, module])
+  @@index([userId, questionId])
+  @@map("question_exposures")
+}
+
 // ─── IP & Ownership Records ──────────────────────────────────
 
 model OwnershipRecord {
