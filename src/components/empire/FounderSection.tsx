@@ -99,7 +99,7 @@ export function FounderSection() {
 
                   {/* Introduction */}
                   <p className="font-[family-name:var(--font-sans)] text-[#b8a88a] text-sm sm:text-base leading-relaxed max-w-xl">
-                    Mahmoud Ashri founded MACAL EMPIRE with a singular conviction: that English proficiency
+                    Mahmoud Ashri founded Empire English Community with a singular conviction: that English proficiency
                     assessment should reveal genuine ability, not reward memorization. With extensive experience
                     in educational technology and language assessment design, he envisioned a system where every
                     test-taker faces a unique, fair, and tamper-resistant evaluation — one that measures truth,

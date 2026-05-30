@@ -44,12 +44,9 @@ export function Footer() {
               Forged in Language. Crowned in Mastery.
             </p>
           </div>
-          <div className="flex flex-col items-center md:items-end gap-1">
+          <div className="flex flex-col items-center md:items-end">
             <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">
               &copy; {new Date().getFullYear()} MACAL EMPIRE. All rights reserved.
-            </p>
-            <p className="text-[#8b7355]/40 text-[10px] font-[family-name:var(--font-heading)]">
-              Founded by Mahmoud Ashri
             </p>
           </div>
         </div>
