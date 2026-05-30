@@ -8,3 +8,6 @@ export { SectionDivider } from './SectionDivider';
 export { ProgressBar } from './ProgressBar';
 export { Navbar } from './Navbar';
 export { Footer } from './Footer';
+export { SocialMediaSection } from './SocialMediaSection';
+export { TestimonialsSection } from './TestimonialsSection';
+export { SponsorshipSection } from './SponsorshipSection';
