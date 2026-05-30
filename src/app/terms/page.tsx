@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar, Footer, ParticleBackground, ImperialButton, SectionDivider } from '@/components/empire';
-import { Scroll, Shield, AlertTriangle, Scale, FileText, ChevronRight } from 'lucide-react';
+import { Scroll, Shield, AlertTriangle, Scale, FileText, ChevronRight, Crown } from 'lucide-react';
 
 const sections = [
   {
@@ -161,12 +161,19 @@ export default function TermsOfServicePage() {
             <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm italic">
               Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
-            <div className="pt-2">
+            <div className="pt-2 flex items-center justify-center gap-4 flex-wrap">
               <Link
                 href="/privacy"
                 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm hover:text-[#e8d48b] underline underline-offset-2 transition-colors"
               >
                 Read our Privacy Policy
+              </Link>
+              <Link
+                href="/ip-ownership"
+                className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm hover:text-[#e8d48b] underline underline-offset-2 transition-colors flex items-center gap-1"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                IP & Ownership
               </Link>
             </div>
             <div className="pt-4">

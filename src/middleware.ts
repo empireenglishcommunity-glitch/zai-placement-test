@@ -24,9 +24,12 @@ const PUBLIC_ROUTES = [
   '/register',
   '/forgot-password',
   '/terms',
+  '/privacy',
+  '/ip-ownership',
   '/welcome',
   '/api/auth',
   '/api/security/log',
+  '/api/ownership',
 ];
 
 // Simple in-memory rate limiting for page requests

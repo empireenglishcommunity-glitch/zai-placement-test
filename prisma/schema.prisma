@@ -200,3 +200,19 @@ model AdminNote {
   @@index([targetUserId])
   @@map("admin_notes")
 }
+
+// ─── IP & Ownership Records ──────────────────────────────────
+
+model OwnershipRecord {
+  id          String   @id @default(cuid())
+  eventType   String   // terms_acceptance, content_publication, certificate_generation, system_update, ownership_declaration
+  description String
+  metadata    String?  // JSON string for additional data
+  userId      String?  // Optional: link to user if applicable
+  createdBy   String?  // admin or system
+  createdAt   DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("ownership_records")
+}

@@ -16,6 +16,7 @@ import {
   Shield,
   Database,
   Server,
+  Crown,
 } from 'lucide-react';
 
 const sections = [
@@ -241,6 +242,14 @@ export default function PrivacyPolicyPage() {
                   <span className="flex items-center gap-2">
                     <Shield className="w-4 h-4" />
                     Terms of Service
+                  </span>
+                </ImperialButton>
+              </Link>
+              <Link href="/ip-ownership">
+                <ImperialButton variant="outline" size="md">
+                  <span className="flex items-center gap-2">
+                    <Crown className="w-4 h-4" />
+                    IP & Ownership
                   </span>
                 </ImperialButton>
               </Link>

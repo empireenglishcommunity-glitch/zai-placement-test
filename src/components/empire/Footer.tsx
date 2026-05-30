@@ -33,6 +33,13 @@ export function Footer() {
               Privacy Policy
             </Link>
             <span className="text-[rgba(201,168,76,0.2)]">|</span>
+            <Link
+              href="/ip-ownership"
+              className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider hover:text-[#c9a84c] transition-colors"
+            >
+              IP & Ownership
+            </Link>
+            <span className="text-[rgba(201,168,76,0.2)]">|</span>
             <p className="text-[#8b7355] text-sm font-[family-name:var(--font-heading)]">
               Forged in Language. Crowned in Mastery.
             </p>
