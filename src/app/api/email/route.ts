@@ -42,6 +42,32 @@ const RANK_NAMES: Record<number, string> = {
   3: 'Champion',
 };
 
+// ─── Retry Helper ────────────────────────────────────────────────
+// Retries an async operation with exponential backoff
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.warn(`[email_retry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`, err instanceof Error ? err.message : err);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // ─── Admin Email Template ────────────────────────────────────────
 
 function generateAdminEmail(data: {
@@ -220,6 +246,8 @@ function generateStudentEmail(data: {
 // ─── API Route Handler ──────────────────────────────────────────
 
 async function handler(req: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const body = await req.json();
     const {
@@ -236,6 +264,7 @@ async function handler(req: NextRequest) {
 
     // Validate required fields
     if (!studentName || !studentEmail || finalLevel === undefined) {
+      console.error('[email_send_status] Validation failed: missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields: studentName, studentEmail, finalLevel' },
         { status: 400 }
@@ -243,54 +272,107 @@ async function handler(req: NextRequest) {
     }
 
     const timestamp = completionTimestamp || new Date().toISOString();
+    let adminSendSuccess = false;
+    let studentSendSuccess = false;
+    let adminPreviewUrl: string | null = null;
+    let studentPreviewUrl: string | null = null;
+    let adminError: string | null = null;
+    let studentError: string | null = null;
 
-    const transporter = await getTransporter();
+    try {
+      const transporter = await getTransporter();
 
-    // Send admin email
-    const adminResult = await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Empire Assessment" <noreply@empire-english.com>',
-      to: 'macalempire@gmail.com',
-      subject: `Imperial Assessment Report — ${studentName} — ${RANK_NAMES[finalLevel] || 'Unknown'}`,
-      html: generateAdminEmail({
-        studentName,
-        studentEmail,
-        speakingScore: speakingScore || 0,
-        listeningScore: listeningScore || 0,
-        vocabularyScore: vocabularyScore || 0,
-        grammarScore: grammarScore || 0,
-        finalLevel,
-        completionTimestamp: timestamp,
-        breakdown,
-      }),
-    });
+      // Send admin email with retry
+      try {
+        const adminResult = await withRetry(async () => {
+          return transporter.sendMail({
+            from: process.env.SMTP_FROM || '"Empire Assessment" <noreply@empire-english.com>',
+            to: 'macalempire@gmail.com',
+            subject: `Imperial Assessment Report — ${studentName} — ${RANK_NAMES[finalLevel] || 'Unknown'}`,
+            html: generateAdminEmail({
+              studentName,
+              studentEmail,
+              speakingScore: speakingScore || 0,
+              listeningScore: listeningScore || 0,
+              vocabularyScore: vocabularyScore || 0,
+              grammarScore: grammarScore || 0,
+              finalLevel,
+              completionTimestamp: timestamp,
+              breakdown,
+            }),
+          });
+        }, 2, 1000);
 
-    // Send student email
-    const studentResult = await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Empire English Community" <noreply@empire-english.com>',
-      to: studentEmail,
-      subject: `Your Imperial Rank Has Been Decreed — ${RANK_NAMES[finalLevel] || 'Recruit'}`,
-      html: generateStudentEmail({
-        studentName,
-        speakingScore: speakingScore || 0,
-        listeningScore: listeningScore || 0,
-        vocabularyScore: vocabularyScore || 0,
-        grammarScore: grammarScore || 0,
-        finalLevel,
-      }),
-    });
+        adminSendSuccess = true;
+        adminPreviewUrl = nodemailer.getTestMessageUrl(adminResult);
+        console.log('[email_send_status_admin] SUCCESS — Admin email sent for:', studentName, '| Duration:', Date.now() - startTime, 'ms');
+      } catch (err) {
+        adminError = err instanceof Error ? err.message : 'Unknown admin email error';
+        console.error('[email_send_status_admin] FAILED —', adminError, '| Duration:', Date.now() - startTime, 'ms');
+      }
 
-    // If using Ethereal (dev), log the preview URLs
-    const adminUrl = nodemailer.getTestMessageUrl(adminResult);
-    const studentUrl = nodemailer.getTestMessageUrl(studentResult);
+      // Send student email with retry
+      try {
+        const studentResult = await withRetry(async () => {
+          return transporter.sendMail({
+            from: process.env.SMTP_FROM || '"Empire English Community" <noreply@empire-english.com>',
+            to: studentEmail,
+            subject: `Your Imperial Rank Has Been Decreed — ${RANK_NAMES[finalLevel] || 'Recruit'}`,
+            html: generateStudentEmail({
+              studentName,
+              speakingScore: speakingScore || 0,
+              listeningScore: listeningScore || 0,
+              vocabularyScore: vocabularyScore || 0,
+              grammarScore: grammarScore || 0,
+              finalLevel,
+            }),
+          });
+        }, 2, 1000);
+
+        studentSendSuccess = true;
+        studentPreviewUrl = nodemailer.getTestMessageUrl(studentResult);
+        console.log('[email_send_status_student] SUCCESS — Student email sent to:', studentEmail, '| Duration:', Date.now() - startTime, 'ms');
+      } catch (err) {
+        studentError = err instanceof Error ? err.message : 'Unknown student email error';
+        console.error('[email_send_status_student] FAILED —', studentError, '| Duration:', Date.now() - startTime, 'ms');
+      }
+
+    } catch (transporterErr) {
+      const msg = transporterErr instanceof Error ? transporterErr.message : 'Transporter creation failed';
+      console.error('[email_send_status] Transporter setup FAILED —', msg);
+      adminError = adminError || msg;
+      studentError = studentError || msg;
+    }
+
+    // Return detailed results — never silently fail
+    const bothFailed = !adminSendSuccess && !studentSendSuccess;
+
+    if (bothFailed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Both admin and student emails failed to send',
+          details: {
+            adminError,
+            studentError,
+          },
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      adminPreviewUrl: adminUrl || undefined,
-      studentPreviewUrl: studentUrl || undefined,
+      adminSent: adminSendSuccess,
+      studentSent: studentSendSuccess,
+      adminPreviewUrl: adminPreviewUrl || undefined,
+      studentPreviewUrl: studentPreviewUrl || undefined,
+      ...(adminError ? { adminError } : {}),
+      ...(studentError ? { studentError } : {}),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Email sending failed:', message);
+    console.error('[email_send_status] CRITICAL FAILURE —', message, '| Duration:', Date.now() - startTime, 'ms');
     return NextResponse.json(
       { error: 'Failed to send assessment emails', details: message },
       { status: 500 }

@@ -7,6 +7,7 @@ import {
   Search, ChevronUp, ChevronDown, Eye, CheckCircle2,
   Flag, MessageSquare, Download, BookOpen, Crown,
   Activity, Swords, Clock, Star, XCircle, Loader2,
+  HeartPulse, Zap,
 } from 'lucide-react';
 import {
   ParticleBackground, Navbar, Footer, MetallicCard,
@@ -15,6 +16,158 @@ import {
 } from '@/components/empire';
 import { IMPERIAL_RANKS } from '@/lib/types';
 import type { ImperialLevel } from '@/lib/types';
+
+// ─── System Health Check Component ────────────────────────────
+
+interface HealthCheck {
+  module: string;
+  status: 'PASS' | 'FAIL' | 'WARN';
+  latencyMs: number;
+  details: string;
+  error?: string;
+}
+
+interface HealthData {
+  overallStatus: string;
+  summary: { total: number; passed: number; failed: number; warnings: number };
+  checks: HealthCheck[];
+}
+
+function SystemHealthCheck() {
+  const [health, setHealth] = useState<HealthData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const runCheck = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/system-health');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setHealth(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Health check failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusIcon = (status: string) => {
+    if (status === 'PASS') return <CheckCircle2 className="w-4 h-4 text-[#c9a84c]" />;
+    if (status === 'FAIL') return <XCircle className="w-4 h-4 text-[#e74c3c]" />;
+    return <AlertTriangle className="w-4 h-4 text-[#ff6b35]" />;
+  };
+
+  const statusColor = (status: string) => {
+    if (status === 'PASS') return 'text-[#c9a84c]';
+    if (status === 'FAIL') return 'text-[#e74c3c]';
+    return 'text-[#ff6b35]';
+  };
+
+  const overallColor = health?.overallStatus === 'HEALTHY' ? '#c9a84c' : health?.overallStatus === 'OPERATIONAL' ? '#cd7f32' : health?.overallStatus === 'DEGRADED' ? '#ff6b35' : '#e74c3c';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[#c9a84c] flex items-center gap-2">
+          <HeartPulse className="w-5 h-5" />
+          System Health Check
+          {health && (
+            <span className="text-sm font-normal ml-2" style={{ color: overallColor }}>
+              {health.overallStatus}
+            </span>
+          )}
+        </h3>
+        <ImperialButton
+          variant="primary"
+          size="sm"
+          onClick={runCheck}
+          disabled={loading}
+          className="flex items-center gap-1.5"
+        >
+          {loading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Zap className="w-3.5 h-3.5" />
+          )}
+          {loading ? 'Running...' : 'Run Check'}
+        </ImperialButton>
+      </div>
+
+      {error && (
+        <div className="mb-4 px-4 py-2 rounded-lg border border-[rgba(255,107,53,0.3)] bg-[rgba(255,107,53,0.05)]">
+          <p className="text-[#ff6b35] text-xs font-[family-name:var(--font-sans)]">Error: {error}</p>
+        </div>
+      )}
+
+      {health && (
+        <div className="space-y-4">
+          {/* Summary row */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="text-center px-3 py-2 rounded-lg bg-[rgba(201,168,76,0.05)] border border-[rgba(201,168,76,0.15)]">
+              <p className="text-lg font-bold text-[#c9a84c] font-[family-name:var(--font-heading)]">{health.summary.passed}</p>
+              <p className="text-[#8b7355] text-[10px] font-[family-name:var(--font-heading)] tracking-wider uppercase">Passed</p>
+            </div>
+            <div className="text-center px-3 py-2 rounded-lg bg-[rgba(255,107,53,0.05)] border border-[rgba(255,107,53,0.15)]">
+              <p className="text-lg font-bold text-[#ff6b35] font-[family-name:var(--font-heading)]">{health.summary.warnings}</p>
+              <p className="text-[#8b7355] text-[10px] font-[family-name:var(--font-heading)] tracking-wider uppercase">Warnings</p>
+            </div>
+            <div className="text-center px-3 py-2 rounded-lg bg-[rgba(231,76,60,0.05)] border border-[rgba(231,76,60,0.15)]">
+              <p className="text-lg font-bold text-[#e74c3c] font-[family-name:var(--font-heading)]">{health.summary.failed}</p>
+              <p className="text-[#8b7355] text-[10px] font-[family-name:var(--font-heading)] tracking-wider uppercase">Failed</p>
+            </div>
+          </div>
+
+          {/* Individual checks */}
+          <div className="space-y-2">
+            {health.checks.map((check) => (
+              <div
+                key={check.module}
+                className="flex items-start gap-3 px-4 py-3 rounded-lg border border-[rgba(201,168,76,0.08)] bg-[rgba(10,10,10,0.3)]"
+              >
+                <div className="mt-0.5 shrink-0">{statusIcon(check.status)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`font-[family-name:var(--font-heading)] text-sm font-semibold ${statusColor(check.status)}`}>
+                      {check.status}
+                    </span>
+                    <span className="text-[#e8e0d0] text-sm font-[family-name:var(--font-heading)]">
+                      {check.module}
+                    </span>
+                    <span className="text-[#8b7355]/50 text-[10px] ml-auto shrink-0">
+                      {check.latencyMs}ms
+                    </span>
+                  </div>
+                  <p className="text-[#8b7355] text-xs mt-0.5">{check.details}</p>
+                  {check.error && (
+                    <p className="text-[#e74c3c] text-[10px] mt-1 font-mono">{check.error}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[#8b7355]/40 text-[10px] text-right">
+            Last checked: {new Date().toLocaleTimeString()}
+          </p>
+        </div>
+      )}
+
+      {!health && !error && !loading && (
+        <MetallicCard className="p-6 text-center" hover={false} glowOnHover={false}>
+          <HeartPulse className="w-8 h-8 text-[#8b7355] mx-auto mb-2 opacity-40" />
+          <p className="text-[#8b7355] text-sm">Click &quot;Run Check&quot; to validate all system modules</p>
+          <p className="text-[#8b7355]/50 text-xs mt-1">Tests: Database, Email, Auth, Scoring Engine, Anti-Cheat, Assets, API Routes</p>
+        </MetallicCard>
+      )}
+    </motion.div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -773,6 +926,11 @@ export default function AdminDashboardPage() {
               </div>
             )}
           </motion.div>
+
+          <SectionDivider />
+
+          {/* ═══ System Health Check ═══ */}
+          <SystemHealthCheck />
 
           <SectionDivider />
 

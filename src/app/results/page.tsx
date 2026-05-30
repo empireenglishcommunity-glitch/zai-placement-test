@@ -344,8 +344,17 @@ function ResultsContent() {
         }),
       })
         .then((res) => res.json())
-        .then(() => setEmailSent(true))
-        .catch(() => {/* Email sending failed silently */})
+        .then((data) => {
+          setEmailSent(true);
+          if (!data.success) {
+            console.error('[email_send_status] Email delivery issue:', data.error || data.details);
+          } else {
+            console.log('[email_send_status] Emails sent — Admin:', data.adminSent, 'Student:', data.studentSent);
+          }
+        })
+        .catch((err) => {
+          console.error('[email_send_status] Email request failed:', err);
+        })
         .finally(() => setEmailSending(false));
     }
   }, [session, results, emailSent]);

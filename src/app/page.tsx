@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, SectionDivider, ImperialRankBadge, ProgressBar, TacticalPanel, GlowingBorder, TestimonialsSection, SocialMediaSection, SponsorshipSection } from '@/components/empire';
+import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, SectionDivider, ImperialRankBadge, ProgressBar, TacticalPanel, GlowingBorder, TestimonialsSection, SocialMediaSection, SponsorshipSection, FounderSection } from '@/components/empire';
 import { Swords, Shield, BookOpen, Headphones } from 'lucide-react';
 
 const trials = [
@@ -243,6 +243,11 @@ export default function Home() {
 
       {/* ── Testimonials ───────────────────────────────── */}
       <TestimonialsSection />
+
+      <SectionDivider />
+
+      {/* ── Founder & Vision ────────────────────────────── */}
+      <FounderSection />
 
       <SectionDivider />
 

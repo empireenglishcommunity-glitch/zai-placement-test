@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { ImperialButton } from './ImperialButton';
-import { Download } from 'lucide-react';
+import { Download, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface EmpireCertificateProps {
   studentName: string;
@@ -26,12 +26,7 @@ const RANK_COLORS: Record<number, string> = {
   3: '#ff6b35',
 };
 
-const RANK_EMOJIS: Record<number, string> = {
-  0: '🗡️',
-  1: '⚔️',
-  2: '🛡️',
-  3: '👑',
-};
+type DownloadState = 'idle' | 'generating' | 'success' | 'error';
 
 export function EmpireCertificate({
   studentName,
@@ -45,25 +40,105 @@ export function EmpireCertificate({
   studentEmail,
 }: EmpireCertificateProps) {
   const certificateRef = useRef<HTMLDivElement>(null);
+  const [downloadState, setDownloadState] = useState<DownloadState>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const date = completionDate || new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
   const accentColor = RANK_COLORS[finalLevel] || '#c9a84c';
-  const rankEmoji = RANK_EMOJIS[finalLevel] || '🗡️';
 
   // Generate session stamp for watermark
   const sessionStamp = `SID-${Date.now().toString(36).toUpperCase()}`;
 
   const handleDownload = useCallback(async () => {
+    if (!certificateRef.current) {
+      setDownloadState('error');
+      setErrorMessage('Certificate element not found. Please refresh the page and try again.');
+      return;
+    }
+
+    setDownloadState('generating');
+    setErrorMessage('');
+
+    try {
+      // Dynamic import to reduce bundle size
+      const html2canvas = (await import('html2canvas-pro')).default;
+      const { jsPDF } = await import('jspdf');
+
+      // Log generation start
+      console.log('[certificate_generation_status] Starting certificate generation for:', studentName);
+
+      // Render the certificate DOM to canvas
+      const canvas = await html2canvas(certificateRef.current, {
+        scale: 2, // High resolution
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#0a0a0a',
+        logging: false,
+        width: certificateRef.current.scrollWidth,
+        height: certificateRef.current.scrollHeight,
+      });
+
+      console.log('[certificate_generation_status] Canvas rendered successfully');
+
+      // Convert canvas to image data
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      // Create PDF in landscape orientation for certificate
+      const orientation = imgWidth > imgHeight ? 'landscape' : 'portrait';
+      const pdf = new jsPDF({
+        orientation,
+        unit: 'px',
+        format: [imgWidth, imgHeight],
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+
+      // Generate filename
+      const safeName = studentName.replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `MACAL_EMPIRE_Certificate_${safeName}_${rankName}.pdf`;
+
+      // Trigger download
+      pdf.save(filename);
+
+      console.log('[certificate_generation_status] PDF generated and download triggered:', filename);
+      console.log('[download_trigger_status] Download initiated successfully');
+
+      setDownloadState('success');
+
+      // Reset to idle after 5 seconds
+      setTimeout(() => setDownloadState('idle'), 5000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.error('[certificate_generation_status] Generation FAILED:', message);
+      console.error('[download_trigger_status] Download NOT triggered due to error');
+
+      setDownloadState('error');
+      setErrorMessage('Certificate generation failed. Please try again or use Print instead.');
+
+      // Reset error after 8 seconds
+      setTimeout(() => {
+        setDownloadState('idle');
+        setErrorMessage('');
+      }, 8000);
+    }
+  }, [studentName, rankName]);
+
+  // Fallback: Print-based download (always available)
+  const handlePrintFallback = useCallback(() => {
     if (!certificateRef.current) return;
 
     try {
-      // Use html2canvas-like approach via the browser's built-in methods
-      // Create a print-friendly version
       const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
+      if (!printWindow) {
+        setDownloadState('error');
+        setErrorMessage('Pop-up blocked. Please allow pop-ups for this site and try again.');
+        return;
+      }
 
       const certificateHTML = certificateRef.current.outerHTML;
       printWindow.document.write(`
@@ -81,14 +156,17 @@ export function EmpireCertificate({
         <body>
           ${certificateHTML}
           <script>
-            setTimeout(() => { window.print(); }, 1000);
+            setTimeout(() => { window.print(); }, 1500);
           </script>
         </body>
         </html>
       `);
       printWindow.document.close();
+      console.log('[download_trigger_status] Print fallback initiated');
     } catch (err) {
-      console.error('Certificate download failed:', err);
+      console.error('[download_trigger_status] Print fallback failed:', err);
+      setDownloadState('error');
+      setErrorMessage('Could not open print dialog. Please check your browser settings.');
     }
   }, [studentName]);
 
@@ -247,7 +325,7 @@ export function EmpireCertificate({
 
           {/* Rank */}
           <div className="mb-6">
-            <p className="text-4xl sm:text-5xl mb-2">{rankEmoji}</p>
+            <p className="text-4xl sm:text-5xl mb-2">{'🗡️⚔️🛡️👑'[finalLevel] || '🗡️'}</p>
             <p className="font-[family-name:var(--font-heading)] text-3xl sm:text-4xl font-bold" style={{ color: accentColor, textShadow: `0 0 20px ${accentColor}40` }}>
               {rankName.toUpperCase()}
             </p>
@@ -302,12 +380,75 @@ export function EmpireCertificate({
         <div className="absolute inset-x-0 bottom-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}80, transparent)`, zIndex: 2 }} />
       </div>
 
-      {/* Download button */}
-      <div className="text-center">
-        <ImperialButton variant="outline" size="md" onClick={handleDownload}>
-          <Download className="w-4 h-4 mr-2" />
-          Download Certificate
-        </ImperialButton>
+      {/* ── Download Controls ── */}
+      <div className="space-y-4">
+        {/* Primary download button */}
+        <div className="text-center">
+          <ImperialButton
+            variant="primary"
+            size="lg"
+            onClick={handleDownload}
+            disabled={downloadState === 'generating'}
+          >
+            {downloadState === 'generating' ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating certificate...
+              </span>
+            ) : downloadState === 'success' ? (
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                Download started!
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Download Certificate (PDF)
+              </span>
+            )}
+          </ImperialButton>
+        </div>
+
+        {/* Success message */}
+        {downloadState === 'success' && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-xs tracking-wider flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Certificate PDF generated and download initiated successfully
+            </p>
+          </motion.div>
+        )}
+
+        {/* Error message */}
+        {downloadState === 'error' && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(255,107,53,0.3)] bg-[rgba(255,107,53,0.05)]">
+              <AlertTriangle className="w-3.5 h-3.5 text-[#ff6b35]" />
+              <p className="text-[#ff6b35] text-xs font-[family-name:var(--font-sans)]">{errorMessage}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Fallback print option */}
+        <div className="text-center">
+          <ImperialButton
+            variant="ghost"
+            size="sm"
+            onClick={handlePrintFallback}
+          >
+            <span className="flex items-center gap-1.5 text-[#8b7355]">
+              Or print/save as PDF via browser
+            </span>
+          </ImperialButton>
+        </div>
       </div>
     </div>
   );
