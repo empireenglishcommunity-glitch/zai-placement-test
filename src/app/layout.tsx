@@ -25,7 +25,11 @@ export const metadata: Metadata = {
   description: "An elite imperial English transformation academy. Enter the Empire, complete the Four Trials, prove your worth, and earn your Imperial Rank.",
   keywords: ["English", "Assessment", "Placement Test", "Imperial", "Language Learning"],
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 
