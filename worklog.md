@@ -58,3 +58,24 @@ Stage Summary:
 - Dashboard is 100% dynamic with real DB data, no more mock "Commander" for new users
 - New users see clean "Recruit" state with "Begin Your First Trial" CTA
 - Stats and activity only populate as users complete real assessments
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix Dashboard - restore all sections, show starting/zero values for new users
+
+Work Log:
+- Restored Imperial Rank section — always visible, shows Recruit (Level 0) for new users
+- Removed the conditional {isNewUser && ...} and {!isNewUser && ...} guards that were hiding sections
+- All 4 rank badges always visible (Recruit highlighted as CURRENT, others dimmed)
+- The Four Trials section always shows all 4 modules with "Not Started" status
+- Command Statistics always shows: 0 Trials, Recruit rank, — for vocab, — for grammar
+- Recent Activity shows clean "No activity yet" placeholder with Clock icon
+- Training Status shows "Initiate Path" with recommended actions to begin trials
+- Quick Actions always shows both "Begin Your Next Trial" and "View Full Results" buttons
+- Build passes successfully
+
+Stage Summary:
+- Dashboard now looks complete and professional for new users with starting/zero values
+- All sections always visible regardless of assessment history
+- As students complete assessments, data fills in naturally with real scores from the database

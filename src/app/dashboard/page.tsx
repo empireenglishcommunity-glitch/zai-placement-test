@@ -19,7 +19,7 @@ import {
   Zap,
   Loader2,
   Crown,
-  Scroll,
+  TrendingUp,
 } from 'lucide-react';
 import {
   ParticleBackground,
@@ -95,14 +95,7 @@ const itemVariants = {
   },
 };
 
-// ─── Module Icon Map ────────────────────────────────────────
-
-const MODULE_ICONS: Record<ModuleType, React.ReactNode> = {
-  speaking: <Mic className="w-5 h-5" />,
-  listening: <Headphones className="w-5 h-5" />,
-  vocabulary: <BookOpen className="w-5 h-5" />,
-  grammar: <Swords className="w-5 h-5" />,
-};
+// ─── Constants ──────────────────────────────────────────────
 
 const STATUS_LABELS: Record<AssessmentStatus, string> = {
   not_started: 'Not Started',
@@ -220,8 +213,6 @@ export default function DashboardPage() {
     (p) => p.status === 'completed'
   ).length;
   const totalModules = 4;
-  const overallProgress = Math.round((completedModules / totalModules) * 100);
-  const isNewUser = !data.hasAssessments;
 
   return (
     <div className="min-h-screen flex flex-col empire-bg">
@@ -259,12 +250,9 @@ export default function DashboardPage() {
             <motion.p
               className="text-[#e8e0d0]/70 text-base italic font-[family-name:var(--font-sans)]"
               animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }
-            }>
-              {isNewUser
-                ? '\u201CYour journey begins with a single trial\u201D'
-                : '\u201CThe Empire awaits your next trial\u201D'
-              }
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              &ldquo;The Empire awaits your next trial&rdquo;
             </motion.p>
 
             <div className="pt-2">
@@ -281,119 +269,81 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ New User CTA ═══ */}
-          {isNewUser && (
-            <motion.section variants={itemVariants}>
-              <GlowingBorder intensity="high" className="rounded-lg">
-                <MetallicCard hover={false} glowOnHover={false} className="p-8 sm:p-12 text-center">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.3 }}
-                    className="space-y-6"
-                  >
-                    <Scroll className="w-12 h-12 text-[#c9a84c] mx-auto" />
-                    <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow">
-                      YOUR JOURNEY AWAITS
-                    </h2>
-                    <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg italic max-w-xl mx-auto">
-                      You have not yet faced the Four Trials. Prove your command of English
-                      and earn your Imperial Rank. Each trial tests a different skill —
-                      speaking, listening, vocabulary, and grammar.
+          {/* ═══ Imperial Rank Display — ALWAYS VISIBLE ═══ */}
+          <motion.section variants={itemVariants} className="space-y-6">
+            <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
+              Imperial Rank
+            </h2>
+
+            <GlowingBorder color="gold" intensity="medium" className="rounded-lg">
+              <MetallicCard hover={false} glowOnHover={false} className="p-6 sm:p-8">
+                <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+                  {/* Large rank badge */}
+                  <div className="flex flex-col items-center gap-3">
+                    <ImperialRankBadge
+                      level={currentLevel}
+                      size="lg"
+                      showLabel={false}
+                    />
+                    <span
+                      className="font-[family-name:var(--font-heading)] font-bold text-2xl"
+                      style={{ color: STATUS_COLORS.completed }}
+                    >
+                      {IMPERIAL_RANKS[currentLevel]}
+                    </span>
+                    <p className="text-[#8b7355] text-sm text-center max-w-[250px] font-[family-name:var(--font-sans)]">
+                      {IMPERIAL_RANK_DESCRIPTIONS[currentLevel]}
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
-                      <Link href="/assessment">
-                        <ImperialButton variant="primary" size="lg">
-                          <span className="flex items-center gap-2">
-                            <Swords className="w-5 h-5" />
-                            Begin Your First Trial
-                          </span>
-                        </ImperialButton>
-                      </Link>
-                    </div>
-                  </motion.div>
-                </MetallicCard>
-              </GlowingBorder>
-            </motion.section>
-          )}
+                  </div>
 
-          {/* ═══ Imperial Rank Display (only for users with assessments) ═══ */}
-          {!isNewUser && (
-            <motion.section variants={itemVariants} className="space-y-6">
-              <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
-                Imperial Rank
-              </h2>
-
-              <GlowingBorder color="gold" intensity="medium" className="rounded-lg">
-                <MetallicCard hover={false} glowOnHover={false} className="p-6 sm:p-8">
-                  <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
-                    {/* Large rank badge */}
-                    <div className="flex flex-col items-center gap-3">
-                      <ImperialRankBadge
-                        level={currentLevel}
-                        size="lg"
-                        showLabel={false}
-                      />
-                      <span
-                        className="font-[family-name:var(--font-heading)] font-bold text-2xl"
-                        style={{ color: STATUS_COLORS.completed }}
-                      >
-                        {IMPERIAL_RANKS[currentLevel]}
-                      </span>
-                      <p className="text-[#8b7355] text-sm text-center max-w-[250px] font-[family-name:var(--font-sans)]">
-                        {IMPERIAL_RANK_DESCRIPTIONS[currentLevel]}
-                      </p>
-                    </div>
-
-                    {/* All 4 ranks visual */}
-                    <div className="flex-1 w-full">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        {([0, 1, 2, 3] as ImperialLevel[]).map((lvl) => {
-                          const isActive = lvl === currentLevel;
-                          const isAchieved = lvl <= currentLevel;
-                          return (
-                            <motion.div
-                              key={lvl}
-                              className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
+                  {/* All 4 ranks visual */}
+                  <div className="flex-1 w-full">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {([0, 1, 2, 3] as ImperialLevel[]).map((lvl) => {
+                        const isActive = lvl === currentLevel;
+                        const isAchieved = lvl <= currentLevel;
+                        return (
+                          <motion.div
+                            key={lvl}
+                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
+                              isActive
+                                ? 'border-[#c9a84c] bg-[rgba(201,168,76,0.08)]'
+                                : isAchieved
+                                  ? 'border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.03)]'
+                                  : 'border-[rgba(139,115,85,0.15)] bg-transparent opacity-50'
+                            }`}
+                            whileHover={{ scale: 1.05 }}
+                          >
+                            <ImperialRankBadge level={lvl} size="sm" />
+                            <span
+                              className={`font-[family-name:var(--font-heading)] text-xs ${
                                 isActive
-                                  ? 'border-[#c9a84c] bg-[rgba(201,168,76,0.08)]'
+                                  ? 'text-[#c9a84c] font-bold'
                                   : isAchieved
-                                    ? 'border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.03)]'
-                                    : 'border-[rgba(139,115,85,0.15)] bg-transparent opacity-50'
+                                    ? 'text-[#8b7355]'
+                                    : 'text-[#8b7355]/50'
                               }`}
-                              whileHover={{ scale: 1.05 }}
                             >
-                              <ImperialRankBadge level={lvl} size="sm" />
-                              <span
-                                className={`font-[family-name:var(--font-heading)] text-xs ${
-                                  isActive
-                                    ? 'text-[#c9a84c] font-bold'
-                                    : isAchieved
-                                      ? 'text-[#8b7355]'
-                                      : 'text-[#8b7355]/50'
-                                }`}
-                              >
-                                {IMPERIAL_RANKS[lvl]}
+                              {IMPERIAL_RANKS[lvl]}
+                            </span>
+                            {isActive && (
+                              <span className="text-[10px] text-[#c9a84c] bg-[rgba(201,168,76,0.1)] px-2 py-0.5 rounded-full font-[family-name:var(--font-heading)]">
+                                CURRENT
                               </span>
-                              {isActive && (
-                                <span className="text-[10px] text-[#c9a84c] bg-[rgba(201,168,76,0.1)] px-2 py-0.5 rounded-full font-[family-name:var(--font-heading)]">
-                                  CURRENT
-                                </span>
-                              )}
-                            </motion.div>
-                          );
-                        })}
-                      </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </div>
-                </MetallicCard>
-              </GlowingBorder>
-            </motion.section>
-          )}
+                </div>
+              </MetallicCard>
+            </GlowingBorder>
+          </motion.section>
 
           <SectionDivider />
 
-          {/* ═══ Assessment Progress ═══ */}
+          {/* ═══ Assessment Progress — ALWAYS VISIBLE ═══ */}
           <motion.section variants={itemVariants} className="space-y-6">
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               The Four Trials
@@ -406,7 +356,7 @@ export default function DashboardPage() {
                   (typeof MODULE_INFO)[ModuleType],
                 ][]
               ).map(([moduleKey, info]) => {
-                const progress = data.moduleProgress[moduleKey] || { status: 'not_started', score: null, level: null };
+                const progress = data.moduleProgress[moduleKey] || { status: 'not_started' as AssessmentStatus, score: null, level: null };
                 const isCompleted = progress.status === 'completed';
                 const isInProgress = progress.status === 'in_progress';
 
@@ -513,7 +463,7 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Stats Overview (only show real data) ═══ */}
+          {/* ═══ Stats Overview — ALWAYS VISIBLE ═══ */}
           <motion.section variants={itemVariants} className="space-y-6">
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               Command Statistics
@@ -616,7 +566,7 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Recent Activity & Training Status ═══ */}
+          {/* ═══ Recent Activity & Training Status — ALWAYS VISIBLE ═══ */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Activity */}
             <motion.section variants={itemVariants} className="space-y-4">
@@ -652,7 +602,7 @@ export default function DashboardPage() {
                             <span className="text-[#8b7355] text-xs">
                               {entry.module}
                             </span>
-                            <span className="text-[#8b7355]/40">•</span>
+                            <span className="text-[#8b7355]/40">&bull;</span>
                             <span className="text-[#8b7355]/60 text-xs">
                               {new Date(entry.timestamp).toLocaleDateString()}
                             </span>
@@ -663,9 +613,9 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="py-8 text-center">
-                    <Scroll className="w-8 h-8 text-[#8b7355]/40 mx-auto mb-3" />
+                    <Clock className="w-8 h-8 text-[#8b7355]/40 mx-auto mb-3" />
                     <p className="text-[#8b7355] text-sm font-[family-name:var(--font-sans)] italic">
-                      No activity yet. Begin your first trial to see your progress here.
+                      No activity yet. Complete a trial to see your history here.
                     </p>
                   </div>
                 )}
@@ -688,22 +638,18 @@ export default function DashboardPage() {
                       </h3>
                     </div>
                     <p className="text-[#e8e0d0] text-sm font-[family-name:var(--font-sans)] ml-6">
-                      {isNewUser
-                        ? 'Recruit Path — Begin Your Journey'
-                        : currentLevel === 0
-                          ? 'Initiate Path — Building Foundations of Command'
-                          : currentLevel === 1
-                            ? 'Warrior Path — Strengthening Your Command'
-                            : currentLevel === 2
-                              ? 'Commander Path — Mastering the Language'
-                              : 'Champion Path — Achieving Mastery'}
+                      {currentLevel === 0
+                        ? 'Initiate Path — Building Foundations of Command'
+                        : currentLevel === 1
+                          ? 'Warrior Path — Strengthening Your Command'
+                          : currentLevel === 2
+                            ? 'Commander Path — Mastering the Language'
+                            : 'Champion Path — Achieving Mastery'}
                     </p>
                     <p className="text-[#8b7355] text-xs mt-1 ml-6 font-[family-name:var(--font-sans)]">
-                      {isNewUser
-                        ? 'Start with the Four Trials to discover your current level and receive personalized training recommendations.'
-                        : completedModules < 4
-                          ? `Complete ${4 - completedModules} more trial${4 - completedModules > 1 ? 's' : ''} to unlock your full Imperial Rank assessment.`
-                          : 'All four trials completed. Your Imperial Rank has been determined.'}
+                      {completedModules < 4
+                        ? `Focus on completing all four trials to determine your true Imperial Rank. ${4 - completedModules} trial${4 - completedModules > 1 ? 's' : ''} remaining.`
+                        : 'All four trials completed. Your Imperial Rank has been determined.'}
                     </p>
                   </div>
 
@@ -757,10 +703,10 @@ export default function DashboardPage() {
 
                   {/* Level Progress Hint */}
                   <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-[#8b7355]" />
+                    <TrendingUp className="w-4 h-4 text-[#8b7355]" />
                     <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)]">
                       {completedModules === 0
-                        ? 'Complete your first trial to earn your initial rank'
+                        ? <>Complete your first trial to earn your initial rank — advance to <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">Warrior</span></>
                         : completedModules < 4
                           ? <>Complete {4 - completedModules} more trial{4 - completedModules > 1 ? 's' : ''} to advance to{' '}
                               <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">
@@ -777,7 +723,7 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Quick Actions ═══ */}
+          {/* ═══ Quick Actions — ALWAYS VISIBLE ═══ */}
           <motion.section
             variants={itemVariants}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
@@ -786,20 +732,18 @@ export default function DashboardPage() {
               <ImperialButton variant="primary" size="lg">
                 <span className="flex items-center gap-2">
                   <Swords className="w-5 h-5" />
-                  {isNewUser ? 'Begin Your First Trial' : 'Begin Your Next Trial'}
+                  Begin Your Next Trial
                 </span>
               </ImperialButton>
             </Link>
-            {!isNewUser && (
-              <Link href="/results">
-                <ImperialButton variant="outline" size="lg">
-                  <span className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5" />
-                    View Full Results
-                  </span>
-                </ImperialButton>
-              </Link>
-            )}
+            <Link href="/results">
+              <ImperialButton variant="outline" size="lg">
+                <span className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5" />
+                  View Full Results
+                </span>
+              </ImperialButton>
+            </Link>
           </motion.section>
         </motion.div>
       </main>
@@ -817,22 +761,16 @@ function getRecommendedActions(moduleProgress: Record<string, ModuleProgress>) {
   const actions: { label: string; sublabel: string; priority: string }[] = [];
 
   const modules: { key: string; name: string; title: string }[] = [
-    { key: 'vocabulary', name: 'Vocabulary', title: 'Vocabulary Assessment' },
-    { key: 'grammar', name: 'Grammar', title: 'Grammar Assessment' },
-    { key: 'speaking', name: 'Speaking', title: 'Speaking Assessment' },
-    { key: 'listening', name: 'Listening', title: 'Listening Assessment' },
+    { key: 'vocabulary', name: 'Words', title: 'Vocabulary Assessment' },
+    { key: 'grammar', name: 'Structure', title: 'Grammar Assessment' },
+    { key: 'speaking', name: 'Voice', title: 'Speaking Assessment' },
+    { key: 'listening', name: 'the Ear', title: 'Listening Assessment' },
   ];
 
   // Priority: not_started > in_progress > completed (for retaking)
   for (const mod of modules) {
     const progress = moduleProgress[mod.key];
-    if (!progress) {
-      actions.push({
-        label: `Begin Trial of ${mod.name}`,
-        sublabel: mod.title,
-        priority: actions.length === 0 ? 'Urgent' : 'Next',
-      });
-    } else if (progress.status === 'not_started') {
+    if (!progress || progress.status === 'not_started') {
       actions.push({
         label: `Begin Trial of ${mod.name}`,
         sublabel: mod.title,
