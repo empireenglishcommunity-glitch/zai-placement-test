@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -13,7 +12,6 @@ interface TermsAcceptanceGateProps {
 }
 
 export function TermsAcceptanceGate({ onAccepted }: TermsAcceptanceGateProps) {
-  const router = useRouter();
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -26,15 +24,15 @@ export function TermsAcceptanceGate({ onAccepted }: TermsAcceptanceGateProps) {
     try {
       const res = await fetch('/api/terms', { method: 'POST' });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to record acceptance. Please try again.');
-        setIsSubmitting(false);
-        return;
+        // Don't block the user — still proceed but log the issue
+        console.warn('[TermsGate] Server returned non-OK response, proceeding with local acceptance');
       }
+      // Always proceed — the useTermsGuard hook already saves to localStorage
       onAccepted();
     } catch {
-      setError('An error occurred. Please try again.');
-      setIsSubmitting(false);
+      // Network error — don't block the user, proceed with local acceptance
+      console.warn('[TermsGate] Network error, proceeding with local acceptance');
+      onAccepted();
     }
   };
 
