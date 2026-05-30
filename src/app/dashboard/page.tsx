@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -15,9 +15,9 @@ import {
   Star,
   Target,
   Zap,
-  Crown,
   TrendingUp,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import {
   ParticleBackground,
@@ -74,7 +74,7 @@ interface DashboardData {
   hasAssessments: boolean;
 }
 
-// ─── Default data for new users ─────────────────────────────
+// ─── Default data for NEW users (zero-state) ─────────────────
 
 const DEFAULT_MODULE_PROGRESS: Record<string, ModuleProgress> = {
   speaking: { status: 'not_started', score: null, level: null },
@@ -93,15 +93,14 @@ const DEFAULT_DATA: DashboardData = {
 };
 
 // ─── Animation Config ───────────────────────────────────────
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
-};
+// CRITICAL: We do NOT use opacity:0 on the container.
+// Content must be VISIBLE by default. Animations are subtle slide-up
+// that only trigger AFTER mount (using mounted state guard).
+// This prevents the "invisible page" bug if JS hydration fails.
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+  hidden: { y: 16 },
+  visible: { y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 };
 
 // ─── Constants ──────────────────────────────────────────────
@@ -126,6 +125,13 @@ export default function DashboardPage() {
   const [apiData, setApiData] = useState<DashboardData | null>(null);
   const [apiError, setApiError] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const hasFetched = useRef(false);
+
+  // Mark as mounted (client-side hydration complete)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auth guard — redirect unauthenticated users
   useEffect(() => {
@@ -135,7 +141,7 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
-  // Fetch dashboard data — runs regardless, doesn't block rendering
+  // Fetch dashboard data — runs only when authenticated
   const fetchDashboard = useCallback(() => {
     setApiError(false);
     fetch('/api/dashboard')
@@ -155,12 +161,10 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && !hasFetched.current) {
+      hasFetched.current = true;
       fetchDashboard();
-    } else if (status === 'unauthenticated') {
-      // Will be redirected by auth guard above
     }
-    // If status is 'loading', we still render defaults — no blocking
   }, [status, fetchDashboard]);
 
   // ═══ COMPUTE DISPLAY DATA ═══
@@ -182,10 +186,12 @@ export default function DashboardPage() {
     (p) => p?.status === 'completed'
   ).length;
   const totalModules = 4;
+  const isNewUser = !apiData || !displayData.hasAssessments;
 
   // ═══════════════════════════════════════════════════════════
   // ALWAYS RENDER THE FULL DASHBOARD IMMEDIATELY
-  // No loading spinner that blocks the page — show defaults, update later
+  // Content is VISIBLE by default — no opacity:0 trap
+  // Animations only add subtle motion after mount
   // ═══════════════════════════════════════════════════════════
 
   return (
@@ -193,21 +199,13 @@ export default function DashboardPage() {
       <ParticleBackground />
       <Navbar />
 
-      {/* Main Content */}
+      {/* Main Content — always visible, no opacity trap */}
       <main className="flex-1 relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="space-y-10"
-        >
+        <div className="space-y-10">
+
           {/* ═══ Sync Banner (non-blocking, shows if API failed) ═══ */}
           {apiError && dataLoaded && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(205,127,50,0.1)] border border-[rgba(205,127,50,0.3)]"
-            >
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(205,127,50,0.1)] border border-[rgba(205,127,50,0.3)]">
               <RefreshCw className="w-4 h-4 text-[#cd7f32] shrink-0" />
               <p className="text-[#cd7f32] text-sm font-[family-name:var(--font-sans)] flex-1">
                 Syncing your command center data...
@@ -215,14 +213,19 @@ export default function DashboardPage() {
               <button onClick={fetchDashboard} className="text-[#cd7f32] hover:text-[#c9a84c] transition-colors">
                 <RefreshCw className="w-4 h-4" />
               </button>
-            </motion.div>
+            </div>
           )}
 
           {/* ═══ Welcome Section ═══ */}
-          <motion.section variants={itemVariants} className="text-center space-y-4">
+          <motion.section
+            variants={itemVariants}
+            initial={mounted ? 'hidden' : false}
+            animate="visible"
+            className="text-center space-y-4"
+          >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
+              initial={mounted ? { scale: 0.95 } : false}
+              animate={{ scale: 1 }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
             >
               <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl lg:text-6xl font-bold gold-shimmer">
@@ -240,11 +243,21 @@ export default function DashboardPage() {
 
             <motion.p
               className="text-[#e8e0d0]/70 text-base italic font-[family-name:var(--font-sans)]"
-              animate={{ opacity: [0.5, 1, 0.5] }}
+              animate={mounted ? { opacity: [0.5, 1, 0.5] } : undefined}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             >
               &ldquo;{currentLevel === 0 ? 'The Empire awaits your first trial' : 'The Empire awaits your next trial'}&rdquo;
             </motion.p>
+
+            {/* New User Encouragement */}
+            {isNewUser && (
+              <div className="mt-4 p-4 rounded-lg bg-[rgba(201,168,76,0.05)] border border-[rgba(201,168,76,0.15)] max-w-md mx-auto">
+                <p className="text-[#c9a84c] text-sm font-[family-name:var(--font-heading)] mb-1">Your journey begins here</p>
+                <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)]">
+                  Complete your first assessment to unlock your rank and begin your rise through the Empire.
+                </p>
+              </div>
+            )}
 
             <div className="pt-2">
               <ProgressBar
@@ -261,7 +274,12 @@ export default function DashboardPage() {
           <SectionDivider />
 
           {/* ═══ Imperial Rank Display ═══ */}
-          <motion.section variants={itemVariants} className="space-y-6">
+          <motion.section
+            variants={itemVariants}
+            initial={mounted ? 'hidden' : false}
+            animate="visible"
+            className="space-y-6"
+          >
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               Imperial Rank
             </h2>
@@ -296,7 +314,7 @@ export default function DashboardPage() {
                                   ? 'border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.03)]'
                                   : 'border-[rgba(139,115,85,0.15)] bg-transparent opacity-50'
                             }`}
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={mounted ? { scale: 1.05 } : undefined}
                           >
                             <ImperialRankBadge level={lvl} size="sm" />
                             <span
@@ -324,7 +342,12 @@ export default function DashboardPage() {
           <SectionDivider />
 
           {/* ═══ The Four Trials ═══ */}
-          <motion.section variants={itemVariants} className="space-y-6">
+          <motion.section
+            variants={itemVariants}
+            initial={mounted ? 'hidden' : false}
+            animate="visible"
+            className="space-y-6"
+          >
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               The Four Trials
             </h2>
@@ -338,7 +361,11 @@ export default function DashboardPage() {
                 const isInProgress = progress.status === 'in_progress';
 
                 return (
-                  <motion.div key={moduleKey} variants={itemVariants} whileHover={{ y: -4 }} transition={{ duration: 0.3 }}>
+                  <motion.div
+                    key={moduleKey}
+                    whileHover={mounted ? { y: -4 } : undefined}
+                    transition={{ duration: 0.3 }}
+                  >
                     <Link href={`/assessment/${moduleKey}`} className="block">
                       <MetallicCard className="p-5 h-full flex flex-col">
                         {/* Module icon & name */}
@@ -402,67 +429,64 @@ export default function DashboardPage() {
           <SectionDivider />
 
           {/* ═══ Command Statistics ═══ */}
-          <motion.section variants={itemVariants} className="space-y-6">
+          <motion.section
+            variants={itemVariants}
+            initial={mounted ? 'hidden' : false}
+            animate="visible"
+            className="space-y-6"
+          >
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               Command Statistics
             </h2>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <motion.div variants={itemVariants}>
-                <MetallicCard className="p-4 sm:p-5 text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
-                      <Trophy className="w-5 h-5 text-[#c9a84c]" />
-                    </div>
+              <MetallicCard className="p-4 sm:p-5 text-center">
+                <div className="flex justify-center mb-2">
+                  <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
+                    <Trophy className="w-5 h-5 text-[#c9a84c]" />
                   </div>
-                  <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]">
-                    {displayData.stats?.assessmentsCompleted ?? 0}
-                  </p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Trials Completed</p>
-                </MetallicCard>
-              </motion.div>
+                </div>
+                <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]">
+                  {displayData.stats?.assessmentsCompleted ?? 0}
+                </p>
+                <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Trials Completed</p>
+              </MetallicCard>
 
-              <motion.div variants={itemVariants}>
-                <MetallicCard className="p-4 sm:p-5 text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
-                      <Shield className="w-5 h-5 text-[#cd7f32]" />
-                    </div>
+              <MetallicCard className="p-4 sm:p-5 text-center">
+                <div className="flex justify-center mb-2">
+                  <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
+                    <Shield className="w-5 h-5 text-[#cd7f32]" />
                   </div>
-                  <p className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#cd7f32]">
-                    {IMPERIAL_RANKS[currentLevel]}
-                  </p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Imperial Rank</p>
-                </MetallicCard>
-              </motion.div>
+                </div>
+                <p className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#cd7f32]">
+                  {IMPERIAL_RANKS[currentLevel]}
+                </p>
+                <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Imperial Rank</p>
+              </MetallicCard>
 
-              <motion.div variants={itemVariants}>
-                <MetallicCard className="p-4 sm:p-5 text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
-                      <BookOpen className="w-5 h-5 text-[#c9a84c]" />
-                    </div>
+              <MetallicCard className="p-4 sm:p-5 text-center">
+                <div className="flex justify-center mb-2">
+                  <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
+                    <BookOpen className="w-5 h-5 text-[#c9a84c]" />
                   </div>
-                  <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]">
-                    {displayData.stats?.vocabularyEstimate ? displayData.stats.vocabularyEstimate.toLocaleString() : '\u2014'}
-                  </p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Est. Vocabulary</p>
-                </MetallicCard>
-              </motion.div>
+                </div>
+                <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]">
+                  {displayData.stats?.vocabularyEstimate ? displayData.stats.vocabularyEstimate.toLocaleString() : '\u2014'}
+                </p>
+                <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Est. Vocabulary</p>
+              </MetallicCard>
 
-              <motion.div variants={itemVariants}>
-                <MetallicCard className="p-4 sm:p-5 text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
-                      <Swords className="w-5 h-5 text-[#8b7355]" />
-                    </div>
+              <MetallicCard className="p-4 sm:p-5 text-center">
+                <div className="flex justify-center mb-2">
+                  <div className="w-10 h-10 rounded-full border border-[rgba(201,168,76,0.3)] flex items-center justify-center bg-[rgba(201,168,76,0.05)]">
+                    <Swords className="w-5 h-5 text-[#8b7355]" />
                   </div>
-                  <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#8b7355]">
-                    {displayData.stats?.grammarScore !== null && displayData.stats?.grammarScore !== undefined ? `${displayData.stats.grammarScore}%` : '\u2014'}
-                  </p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Grammar Score</p>
-                </MetallicCard>
-              </motion.div>
+                </div>
+                <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#8b7355]">
+                  {displayData.stats?.grammarScore !== null && displayData.stats?.grammarScore !== undefined ? `${displayData.stats.grammarScore}%` : '\u2014'}
+                </p>
+                <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Grammar Score</p>
+              </MetallicCard>
             </div>
           </motion.section>
 
@@ -471,17 +495,19 @@ export default function DashboardPage() {
           {/* ═══ Recent Activity & Training Status ═══ */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Activity */}
-            <motion.section variants={itemVariants} className="space-y-4">
+            <motion.section
+              variants={itemVariants}
+              initial={mounted ? 'hidden' : false}
+              animate="visible"
+              className="space-y-4"
+            >
               <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">Recent Activity</h2>
               <TacticalPanel accentSide="left" accentColor="#c9a84c">
                 {displayData.activity && displayData.activity.length > 0 ? (
                   <div className="space-y-0 max-h-96 overflow-y-auto">
                     {displayData.activity.map((entry, index) => (
-                      <motion.div
+                      <div
                         key={entry.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.08 }}
                         className="flex items-start gap-3 py-3 border-b border-[rgba(201,168,76,0.08)] last:border-b-0"
                       >
                         <div className="mt-0.5"><Clock className="w-4 h-4 text-[#8b7355]" /></div>
@@ -498,14 +524,17 @@ export default function DashboardPage() {
                             <span className="text-[#8b7355]/60 text-xs">{new Date(entry.timestamp).toLocaleDateString()}</span>
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 ) : (
                   <div className="py-8 text-center">
                     <Clock className="w-8 h-8 text-[#8b7355]/40 mx-auto mb-3" />
                     <p className="text-[#8b7355] text-sm font-[family-name:var(--font-sans)] italic">
-                      No activity yet. Complete a trial to see your history here.
+                      No assessments completed yet.
+                    </p>
+                    <p className="text-[#8b7355]/60 text-xs font-[family-name:var(--font-sans)] mt-1">
+                      Your journey begins here. Complete your first trial to see your history.
                     </p>
                   </div>
                 )}
@@ -513,7 +542,12 @@ export default function DashboardPage() {
             </motion.section>
 
             {/* Training Status */}
-            <motion.section variants={itemVariants} className="space-y-4">
+            <motion.section
+              variants={itemVariants}
+              initial={mounted ? 'hidden' : false}
+              animate="visible"
+              className="space-y-4"
+            >
               <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">Training Status</h2>
               <TacticalPanel accentSide="left" accentColor="#cd7f32">
                 <div className="space-y-4">
@@ -546,11 +580,8 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-2 ml-6">
                       {getRecommendedActions(displayData.moduleProgress || DEFAULT_MODULE_PROGRESS).map((action, i) => (
-                        <motion.div
+                        <div
                           key={i}
-                          initial={{ opacity: 0, x: -5 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.3 + i * 0.1 }}
                           className="flex items-center justify-between py-2 border-b border-[rgba(201,168,76,0.06)] last:border-b-0"
                         >
                           <div className="flex items-center gap-2">
@@ -571,7 +602,7 @@ export default function DashboardPage() {
                           >
                             {action.priority}
                           </span>
-                        </motion.div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -597,8 +628,57 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
+          {/* ═══ Achievements / Badges Section ═══ */}
+          <motion.section
+            variants={itemVariants}
+            initial={mounted ? 'hidden' : false}
+            animate="visible"
+            className="space-y-6"
+          >
+            <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
+              Achievements
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {ACHIEVEMENTS.map((ach) => {
+                const unlocked = isAchievementUnlocked(ach.id, displayData);
+                return (
+                  <div
+                    key={ach.id}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
+                      unlocked
+                        ? 'border-[#c9a84c] bg-[rgba(201,168,76,0.08)]'
+                        : 'border-[rgba(139,115,85,0.1)] bg-[rgba(139,115,85,0.02)] opacity-40'
+                    }`}
+                  >
+                    <span className="text-2xl">{ach.icon}</span>
+                    <span className={`font-[family-name:var(--font-heading)] text-xs text-center ${unlocked ? 'text-[#c9a84c]' : 'text-[#8b7355]'}`}>
+                      {ach.name}
+                    </span>
+                    {unlocked && (
+                      <span className="text-[9px] text-[#c9a84c] bg-[rgba(201,168,76,0.1)] px-1.5 py-0.5 rounded-full font-[family-name:var(--font-heading)]">
+                        UNLOCKED
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {!displayData.hasAssessments && (
+              <p className="text-center text-[#8b7355]/60 text-xs font-[family-name:var(--font-sans)] italic">
+                Complete assessments to unlock achievements and prove your worth to the Empire.
+              </p>
+            )}
+          </motion.section>
+
+          <SectionDivider />
+
           {/* ═══ Quick Actions ═══ */}
-          <motion.section variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <motion.section
+            variants={itemVariants}
+            initial={mounted ? 'hidden' : false}
+            animate="visible"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
             <Link href="/assessment">
               <ImperialButton variant="primary" size="lg">
                 <span className="flex items-center gap-2">
@@ -616,7 +696,7 @@ export default function DashboardPage() {
               </ImperialButton>
             </Link>
           </motion.section>
-        </motion.div>
+        </div>
       </main>
 
       <div className="mt-auto">
@@ -624,6 +704,37 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// ─── Achievements Data ──────────────────────────────────────
+
+const ACHIEVEMENTS = [
+  { id: 'first_trial', icon: '⚔️', name: 'First Blood' },
+  { id: 'all_trials', icon: '🏆', name: 'Four Trials' },
+  { id: 'vocabulary_1k', icon: '📖', name: 'Wordsmith' },
+  { id: 'grammar_80', icon: '🏛️', name: 'Grammarian' },
+  { id: 'rank_initiate', icon: '🗡️', name: 'Initiate' },
+  { id: 'rank_champion', icon: '👑', name: 'Champion' },
+];
+
+function isAchievementUnlocked(id: string, data: DashboardData): boolean {
+  if (!data.hasAssessments) return false;
+  switch (id) {
+    case 'first_trial':
+      return (data.stats.assessmentsCompleted ?? 0) >= 1;
+    case 'all_trials':
+      return (data.stats.assessmentsCompleted ?? 0) >= 4;
+    case 'vocabulary_1k':
+      return (data.stats.vocabularyEstimate ?? 0) >= 1000;
+    case 'grammar_80':
+      return (data.stats.grammarScore ?? 0) >= 80;
+    case 'rank_initiate':
+      return (data.stats.currentLevel ?? 0) >= 1;
+    case 'rank_champion':
+      return (data.stats.currentLevel ?? 0) >= 3;
+    default:
+      return false;
+  }
 }
 
 // ─── Helper: Generate Recommended Actions ───────────────────
@@ -652,8 +763,8 @@ function getRecommendedActions(moduleProgress: Record<string, ModuleProgress>) {
     let lowestScore = Infinity;
     for (const mod of modules) {
       const progress = moduleProgress[mod.key];
-      if (progress?.score !== null && progress?.score !== undefined && progress.score < lowestScore) {
-        lowestScore = progress.score;
+      if (progress?.score !== null && progress?.score !== undefined && (progress?.score ?? 0) < lowestScore) {
+        lowestScore = progress?.score ?? 0;
         lowestModule = mod;
       }
     }
