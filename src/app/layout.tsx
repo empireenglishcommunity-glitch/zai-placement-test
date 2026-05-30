@@ -3,6 +3,9 @@ import { Cinzel, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { EmpireAudioProvider } from "@/components/empire/EmpireAudioProvider";
+import { EmpireAudioOverlay } from "@/components/empire/EmpireAudioOverlay";
+import { EmpireAudioControls } from "@/components/empire/EmpireAudioControls";
 
 const cinzel = Cinzel({
   variable: "--font-heading",
@@ -37,7 +40,11 @@ export default function RootLayout({
         className={`${cinzel.variable} ${playfair.variable} antialiased bg-[#0a0a0a] text-[#e8e0d0]`}
       >
         <AuthProvider>
-          {children}
+          <EmpireAudioProvider>
+            <EmpireAudioOverlay />
+            {children}
+            <EmpireAudioControls />
+          </EmpireAudioProvider>
         </AuthProvider>
         <Toaster />
       </body>

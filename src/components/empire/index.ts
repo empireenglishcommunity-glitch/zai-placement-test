@@ -11,3 +11,6 @@ export { Footer } from './Footer';
 export { SocialMediaSection } from './SocialMediaSection';
 export { TestimonialsSection } from './TestimonialsSection';
 export { SponsorshipSection } from './SponsorshipSection';
+export { EmpireAudioProvider, useEmpireAudio } from './EmpireAudioProvider';
+export { EmpireAudioOverlay } from './EmpireAudioOverlay';
+export { EmpireAudioControls } from './EmpireAudioControls';

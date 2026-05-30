@@ -1,5 +1,105 @@
 # Empire English Community — Worklog
 
+## Task 13: Immersive Empire Sound Experience — Cinematic Audio System
+**Agent**: main-agent | **Status**: ✅ Complete
+
+### Files Created
+1. **`src/components/empire/EmpireAudioProvider.tsx`** — React context provider for persistent cross-page audio state
+2. **`src/components/empire/EmpireAudioOverlay.tsx`** — Cinematic "Enter the Empire" activation overlay
+3. **`src/components/empire/EmpireAudioControls.tsx`** — Elegant floating audio control widget
+
+### Files Modified
+1. **`src/components/empire/index.ts`** — Added barrel exports for 3 audio components
+2. **`src/app/layout.tsx`** — Wrapped app with EmpireAudioProvider, added overlay + controls
+3. **`src/app/globals.css`** — Added empire-styled volume slider CSS (webkit + moz)
+
+### Audio Asset
+- **`public/empire-soundtrack.mp3`** — Copied from uploaded `Mekal Empire Roar.mp3` (2.25 MB, MP3 format)
+- Clean filename for reliable path resolution across all environments
+
+### EmpireAudioProvider (Context + State Management)
+- React Context provider wrapping entire app at layout level → audio persists across all pages
+- Creates single HTML5 Audio element with `loop=true` and `preload='auto'`
+- **Autoplay attempt on mount**: Tries `audio.play()`, if browser blocks → triggers overlay
+- **Smooth fade-in**: Volume ramps from 0 to 0.15 (15%) over 2 seconds using interval-based steps
+- **Smooth fade-out**: Volume ramps down over 1 second before pausing
+- State exposed: `isPlaying`, `isMuted`, `volume`, `isActivated`, `showOverlay`
+- Actions: `activate()`, `skipActivation()`, `toggleMute()`, `setVolume(v)`, `fadeOut()`
+- Cleanup on unmount: pauses audio, clears src, clears intervals
+
+### EmpireAudioOverlay (Cinematic Entry Experience)
+- Full-screen z-[100] overlay with pure black backdrop
+- Atmospheric radial gold glow and vignette effects
+- Animated sequence with Framer Motion:
+  - Decorative gold line scales in
+  - ⚔️ sword icon fades in
+  - "ENTER THE EMPIRE" heading with gold shimmer
+  - "Activate the cinematic Empire experience" subtitle
+  - "ACTIVATE EXPERIENCE" primary gold gradient button
+  - "Enter silently" skip button (fades in at 2s delay)
+  - Decorative bottom gold line
+  - 12 floating gold particles with random positions and durations
+- **Activate**: Starts audio playback with 2.5s fade-in, closes overlay
+- **Skip**: Dismisses overlay without audio via `skipActivation()`
+- AnimatePresence for smooth enter/exit transitions
+
+### EmpireAudioControls (Floating Widget)
+- Fixed position: bottom-right corner (bottom-5 right-5, z-50)
+- Pill-shaped control with matte black bg, gold border, backdrop blur
+- **Sound wave visualizer**: 4 animated bars when playing + not muted
+- **Mute/Unmute button**: SVG speaker icon, toggle via `toggleMute()`
+- **Expandable volume panel**: Slides up on click with AnimatePresence
+  - Gold-filled range slider showing current volume
+  - Percentage number display
+  - "VOL" label
+- Subtle glow ring around widget when playing (pulsing gold box-shadow)
+- Muted state: shows static flat bars + muted speaker SVG
+- Not-playing state: shows dimmed flat bars + muted speaker SVG
+- All hover/tap animations via Framer Motion
+
+### Volume Slider CSS
+- Custom `.empire-volume-slider` class in globals.css
+- Webkit: gold thumb (14px circle) with dark border and glow shadow
+- Firefox: same gold thumb styling via `::-moz-range-thumb`
+- Track: gradient fill from gold to dark based on volume percentage
+- Hover effects: increased glow + scale on thumb
+
+### Browser Compatibility
+- **Autoplay allowed** (e.g., user previously interacted): Audio starts at 0, fades to 15% over 2s — seamless experience
+- **Autoplay blocked** (most browsers): Cinematic overlay appears, user clicks "ACTIVATE EXPERIENCE" → audio starts with 2.5s fade-in
+- **Skip option**: "Enter silently" button dismisses overlay without audio
+- Mobile Safari: Requires user gesture — overlay handles this gracefully
+- Chrome/Firefox/Edge: Autoplay policy handled correctly
+
+### Performance
+- Audio file: 2.25 MB MP3, preloaded with `preload='auto'`
+- No memory leaks: intervals cleared on unmount, audio src reset
+- Volume changes via direct property manipulation (no re-renders for audio element)
+- Context state updates only on meaningful changes (play/mute/volume)
+
+### Integration Architecture
+```
+RootLayout (Server Component)
+  └── AuthProvider (Client)
+      └── EmpireAudioProvider (Client - Context)
+          ├── EmpireAudioOverlay (Client - z-100 overlay)
+          ├── {children} (All pages)
+          └── EmpireAudioControls (Client - z-50 widget)
+```
+
+### How to Replace Soundtrack Later
+1. Replace `public/empire-soundtrack.mp3` with new file (same name)
+2. Or update the path in `EmpireAudioProvider.tsx` line: `new Audio('/empire-soundtrack.mp3')`
+3. Recommended: Keep file under 5MB for fast loading; use MP3 for max compatibility
+
+### Technical Details
+- All components use `'use client'` directive
+- Framer Motion for all animations (fade, scale, slide, spring, AnimatePresence)
+- No external audio libraries — pure HTML5 Audio API
+- Tailwind CSS consistent with existing imperial design system
+- Fully responsive: controls remain elegant on all screen sizes
+- Build passes ✅ | Netlify compatible ✅ | No console errors ✅
+
 ## Task 12: New Landing Page Sections — Social Media, Testimonials, Sponsorship
 **Agent**: main-agent | **Status**: ✅ Complete
 
