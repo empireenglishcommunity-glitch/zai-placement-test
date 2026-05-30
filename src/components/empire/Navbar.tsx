@@ -32,8 +32,8 @@ export function Navbar() {
               className="object-contain"
               priority
             />
-            <span className="font-[family-name:var(--font-heading)] font-bold text-[#c9a84c] text-lg tracking-wider group-hover:text-[#e8d48b] transition-colors">
-              EMPIRE
+            <span className="font-[family-name:var(--font-heading)] font-bold text-[#c9a84c] text-sm tracking-wider group-hover:text-[#e8d48b] transition-colors">
+              MACAL EMPIRE | EEC
             </span>
           </Link>
 
