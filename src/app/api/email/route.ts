@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { withApiProtection } from '@/lib/api-protection';
 
 // ─── Email Transporter ──────────────────────────────────────────
 // Uses environment variables for SMTP configuration.
@@ -218,7 +219,7 @@ function generateStudentEmail(data: {
 
 // ─── API Route Handler ──────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const body = await req.json();
     const {
@@ -296,3 +297,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// Apply rate limiting for email endpoints — strict to prevent abuse
+export const POST = withApiProtection({ rateLimit: 'email', requireAuth: true, detectBots: true, blockBots: true })(handler);

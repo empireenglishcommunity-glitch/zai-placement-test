@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withApiProtection } from '@/lib/api-protection';
 
 interface AnswerInput {
   questionId: string;
@@ -7,7 +8,7 @@ interface AnswerInput {
   timeTaken: number;
 }
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { assessmentId, module, answers, scores } = await req.json();
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       if (module === 'listening' && scores) {
         updateData.liLiteral = scores.literalComprehension;
         updateData.liInference = scores.inference;
-        updateData.liDetail = scores.detailRecognition;
+        updateData.liDetailRecognition = scores.detailRecognition;
         updateData.liOverall = scores.overall;
         updateData.liLevel = scores.level;
       }
@@ -89,3 +90,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// Apply rate limiting and bot detection
+export const POST = withApiProtection({ rateLimit: 'assessment', requireAuth: true, detectBots: true })(handler);

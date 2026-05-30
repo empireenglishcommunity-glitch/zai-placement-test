@@ -1,5 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { withApiProtection } from '@/lib/api-protection';
+
+async function handler(req: NextRequest) {
+  try {
+    const moduleParam = req.nextUrl.searchParams.get('module');
+    const topicParam = req.nextUrl.searchParams.get('topic');
+
+    if (!moduleParam) {
+      return NextResponse.json({ error: 'Module parameter required' }, { status: 400 });
+    }
+
+    // Try to get questions from the database
+    let questions: unknown[] = [];
+    try {
+      const where: Record<string, string | boolean> = { module: moduleParam, isActive: true };
+      if (topicParam) where.topic = topicParam;
+
+      const dbQuestions = await db.question.findMany({
+        where,
+        orderBy: { difficulty: 'asc' },
+      });
+
+      // Parse options from JSON string
+      questions = dbQuestions.map(q => ({
+        ...q,
+        options: JSON.parse(q.options as string),
+      }));
+    } catch (dbError) {
+      console.log('DB query failed, using fallback questions:', dbError);
+    }
+
+    // If no questions in DB, use fallback
+    if (questions.length === 0) {
+      questions = ALL_FALLBACK.filter(q => {
+        const matchModule = q.module === moduleParam;
+        const matchTopic = !topicParam || q.topic === topicParam;
+        return matchModule && matchTopic;
+      });
+    }
+
+    return NextResponse.json({ questions });
+  } catch (error) {
+    console.error('Questions fetch error:', error);
+    // Even on error, return fallback questions
+    const moduleParam = req.nextUrl.searchParams.get('module');
+    const topicParam = req.nextUrl.searchParams.get('topic');
+    const fallback = ALL_FALLBACK.filter(q => {
+      const matchModule = q.module === moduleParam;
+      const matchTopic = !topicParam || q.topic === topicParam;
+      return matchModule && matchTopic;
+    });
+    return NextResponse.json({ questions: fallback });
+  }
+}
 
 // ─── Fallback Questions ────────────────────────────────────
 // Used when the database has no questions seeded
@@ -57,43 +111,28 @@ const FALLBACK_VOCABULARY_QUESTIONS = [
 ];
 
 const FALLBACK_GRAMMAR_QUESTIONS = [
-  // Present Simple
   { id: 'g1', module: 'grammar', type: 'completion', topic: 'present_simple', questionText: 'She _____ to school every day.', options: ['go', 'goes', 'going', 'gone'], correctAnswer: 1, difficulty: 1, isActive: true },
   { id: 'g2', module: 'grammar', type: 'error_identification', topic: 'present_simple', questionText: 'Which sentence is correct?', options: ['He don\'t like coffee', 'He doesn\'t likes coffee', 'He doesn\'t like coffee', 'He not like coffee'], correctAnswer: 2, difficulty: 1, isActive: true },
   { id: 'g3', module: 'grammar', type: 'transformation', topic: 'present_simple', questionText: 'Transform to negative: "They play football on Sundays."', options: ['They doesn\'t play football on Sundays', 'They don\'t play football on Sundays', 'They not play football on Sundays', 'They aren\'t play football on Sundays'], correctAnswer: 1, difficulty: 2, isActive: true },
-
-  // Present Continuous
   { id: 'g4', module: 'grammar', type: 'completion', topic: 'present_continuous', questionText: 'I _____ reading a book right now.', options: ['am', 'is', 'are', 'be'], correctAnswer: 0, difficulty: 1, isActive: true },
   { id: 'g5', module: 'grammar', type: 'error_identification', topic: 'present_continuous', questionText: 'Which sentence is correct?', options: ['She is work at the office', 'She is working at the office', 'She working at the office', 'She works at the office now'], correctAnswer: 1, difficulty: 1, isActive: true },
   { id: 'g6', module: 'grammar', type: 'transformation', topic: 'present_continuous', questionText: 'Transform to question: "They are watching a movie."', options: ['Are they watching a movie?', 'Do they watching a movie?', 'Is they watching a movie?', 'They are watching a movie?'], correctAnswer: 0, difficulty: 2, isActive: true },
-
-  // Past Simple
   { id: 'g7', module: 'grammar', type: 'completion', topic: 'past_simple', questionText: 'We _____ to the park yesterday.', options: ['go', 'goes', 'went', 'going'], correctAnswer: 2, difficulty: 2, isActive: true },
   { id: 'g8', module: 'grammar', type: 'error_identification', topic: 'past_simple', questionText: 'Which sentence is correct?', options: ['He didn\'t went to school', 'He didn\'t go to school', 'He not went to school', 'He don\'t went to school'], correctAnswer: 1, difficulty: 2, isActive: true },
   { id: 'g9', module: 'grammar', type: 'transformation', topic: 'past_simple', questionText: 'Transform to question: "She bought a new car."', options: ['Did she bought a new car?', 'Does she buy a new car?', 'Did she buy a new car?', 'Was she buy a new car?'], correctAnswer: 2, difficulty: 2, isActive: true },
-
-  // Present Perfect
   { id: 'g10', module: 'grammar', type: 'completion', topic: 'present_perfect', questionText: 'I _____ already finished my homework.', options: ['has', 'have', 'had', 'having'], correctAnswer: 1, difficulty: 3, isActive: true },
   { id: 'g11', module: 'grammar', type: 'completion', topic: 'present_perfect', questionText: 'She _____ never been to Japan.', options: ['have', 'has', 'had', 'having'], correctAnswer: 1, difficulty: 3, isActive: true },
   { id: 'g12', module: 'grammar', type: 'error_identification', topic: 'present_perfect', questionText: 'Which sentence is correct?', options: ['I have went to Paris twice', 'I have go to Paris twice', 'I have been to Paris twice', 'I has been to Paris twice'], correctAnswer: 2, difficulty: 3, isActive: true },
   { id: 'g13', module: 'grammar', type: 'transformation', topic: 'present_perfect', questionText: 'Transform to negative: "They have seen that movie."', options: ['They haven\'t saw that movie', 'They haven\'t seen that movie', 'They didn\'t seen that movie', 'They hasn\'t seen that movie'], correctAnswer: 1, difficulty: 3, isActive: true },
-
-  // Future Forms
   { id: 'g14', module: 'grammar', type: 'completion', topic: 'future_forms', questionText: 'I _____ visit my grandmother next week.', options: ['will', 'did', 'do', 'was'], correctAnswer: 0, difficulty: 2, isActive: true },
   { id: 'g15', module: 'grammar', type: 'error_identification', topic: 'future_forms', questionText: 'Which sentence uses the correct future form?', options: ['I will going to the store', 'I am going to go to the store', 'I will goes to the store', 'I going to the store tomorrow will'], correctAnswer: 1, difficulty: 3, isActive: true },
   { id: 'g16', module: 'grammar', type: 'transformation', topic: 'future_forms', questionText: 'Transform using "going to": "She will study medicine."', options: ['She is going study medicine', 'She is going to study medicine', 'She going to studies medicine', 'She was going to study medicine'], correctAnswer: 1, difficulty: 3, isActive: true },
-
-  // Conditionals
   { id: 'g17', module: 'grammar', type: 'completion', topic: 'conditionals', questionText: 'If it rains, I _____ stay at home.', options: ['will', 'would', 'should', 'could'], correctAnswer: 0, difficulty: 3, isActive: true },
   { id: 'g18', module: 'grammar', type: 'completion', topic: 'conditionals', questionText: 'If I _____ rich, I would travel the world.', options: ['am', 'was', 'were', 'be'], correctAnswer: 2, difficulty: 4, isActive: true },
   { id: 'g19', module: 'grammar', type: 'error_identification', topic: 'conditionals', questionText: 'Which conditional sentence is correct?', options: ['If I will study, I pass the exam', 'If I study, I will pass the exam', 'If I studied, I will pass the exam', 'If I study, I would pass the exam'], correctAnswer: 1, difficulty: 4, isActive: true },
-
-  // Passive Voice
   { id: 'g20', module: 'grammar', type: 'completion', topic: 'passive_voice', questionText: 'The book _____ by the students last year.', options: ['was read', 'is read', 'read', 'reading'], correctAnswer: 0, difficulty: 3, isActive: true },
   { id: 'g21', module: 'grammar', type: 'error_identification', topic: 'passive_voice', questionText: 'Which sentence is in the passive voice?', options: ['The chef cooked the meal', 'The meal was cooked by the chef', 'The chef is cooking the meal', 'The chef cooks the meal'], correctAnswer: 1, difficulty: 3, isActive: true },
   { id: 'g22', module: 'grammar', type: 'transformation', topic: 'passive_voice', questionText: 'Transform to passive: "Someone stole my bicycle."', options: ['My bicycle was stolen', 'My bicycle is stolen', 'My bicycle stole', 'My bicycle were stolen'], correctAnswer: 0, difficulty: 4, isActive: true },
-
-  // Question Formation
   { id: 'g23', module: 'grammar', type: 'transformation', topic: 'question_formation', questionText: 'Form a question: "The empire was founded in 1453."', options: ['When was the empire founded?', 'When the empire was founded?', 'When did the empire founded?', 'When the empire did founded?'], correctAnswer: 0, difficulty: 3, isActive: true },
   { id: 'g24', module: 'grammar', type: 'transformation', topic: 'question_formation', questionText: 'Form a question: "She speaks three languages."', options: ['How many languages does she speak?', 'How many languages do she speak?', 'How many languages she speaks?', 'How many languages she does speak?'], correctAnswer: 0, difficulty: 3, isActive: true },
   { id: 'g25', module: 'grammar', type: 'error_identification', topic: 'question_formation', questionText: 'Which question is correctly formed?', options: ['Where you are going?', 'Where are you going?', 'Where you going?', 'Where going you?'], correctAnswer: 1, difficulty: 2, isActive: true },
@@ -101,55 +140,5 @@ const FALLBACK_GRAMMAR_QUESTIONS = [
 
 const ALL_FALLBACK = [...FALLBACK_VOCABULARY_QUESTIONS, ...FALLBACK_GRAMMAR_QUESTIONS];
 
-export async function GET(req: NextRequest) {
-  try {
-    const moduleParam = req.nextUrl.searchParams.get('module');
-    const topicParam = req.nextUrl.searchParams.get('topic');
-
-    if (!moduleParam) {
-      return NextResponse.json({ error: 'Module parameter required' }, { status: 400 });
-    }
-
-    // Try to get questions from the database
-    let questions: unknown[] = [];
-    try {
-      const where: Record<string, string | boolean> = { module: moduleParam, isActive: true };
-      if (topicParam) where.topic = topicParam;
-
-      const dbQuestions = await db.question.findMany({
-        where,
-        orderBy: { difficulty: 'asc' },
-      });
-
-      // Parse options from JSON string
-      questions = dbQuestions.map(q => ({
-        ...q,
-        options: JSON.parse(q.options as string),
-      }));
-    } catch (dbError) {
-      console.log('DB query failed, using fallback questions:', dbError);
-    }
-
-    // If no questions in DB, use fallback
-    if (questions.length === 0) {
-      questions = ALL_FALLBACK.filter(q => {
-        const matchModule = q.module === moduleParam;
-        const matchTopic = !topicParam || q.topic === topicParam;
-        return matchModule && matchTopic;
-      });
-    }
-
-    return NextResponse.json({ questions });
-  } catch (error) {
-    console.error('Questions fetch error:', error);
-    // Even on error, return fallback questions
-    const moduleParam = req.nextUrl.searchParams.get('module');
-    const topicParam = req.nextUrl.searchParams.get('topic');
-    const fallback = ALL_FALLBACK.filter(q => {
-      const matchModule = q.module === moduleParam;
-      const matchTopic = !topicParam || q.topic === topicParam;
-      return matchModule && matchTopic;
-    });
-    return NextResponse.json({ questions: fallback });
-  }
-}
+// Apply rate limiting and bot detection
+export const GET = withApiProtection({ rateLimit: 'questions', detectBots: true })(handler);

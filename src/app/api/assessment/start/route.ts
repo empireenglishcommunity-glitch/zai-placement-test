@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { withApiProtection } from '@/lib/api-protection';
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { userId } = await req.json();
 
@@ -32,3 +33,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// Apply rate limiting and bot detection for assessment endpoints
+export const POST = withApiProtection({ rateLimit: 'assessment', requireAuth: true, detectBots: true })(handler);

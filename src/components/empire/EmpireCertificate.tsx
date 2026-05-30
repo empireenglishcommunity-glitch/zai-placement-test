@@ -15,6 +15,8 @@ interface EmpireCertificateProps {
   vocabularyScore: number;
   grammarScore: number;
   completionDate?: string;
+  /** User email for watermark */
+  studentEmail?: string;
 }
 
 const RANK_COLORS: Record<number, string> = {
@@ -40,6 +42,7 @@ export function EmpireCertificate({
   vocabularyScore,
   grammarScore,
   completionDate,
+  studentEmail,
 }: EmpireCertificateProps) {
   const certificateRef = useRef<HTMLDivElement>(null);
   const date = completionDate || new Date().toLocaleDateString('en-US', {
@@ -49,6 +52,9 @@ export function EmpireCertificate({
   });
   const accentColor = RANK_COLORS[finalLevel] || '#c9a84c';
   const rankEmoji = RANK_EMOJIS[finalLevel] || '🗡️';
+
+  // Generate session stamp for watermark
+  const sessionStamp = `SID-${Date.now().toString(36).toUpperCase()}`;
 
   const handleDownload = useCallback(async () => {
     if (!certificateRef.current) return;
@@ -98,17 +104,103 @@ export function EmpireCertificate({
           boxShadow: `0 0 40px ${accentColor}15, inset 0 0 60px rgba(0,0,0,0.5)`,
         }}
       >
+        {/* ── Watermark Layer ── */}
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden"
+          style={{ zIndex: 1 }}
+        >
+          {/* Diagonal repeating watermark */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: '-50%',
+              width: '200%',
+              height: '200%',
+              transform: 'rotate(-22deg)',
+              opacity: 0.035,
+            }}
+          >
+            {Array.from({ length: 12 }).map((_, row) =>
+              Array.from({ length: 6 }).map((_, col) => (
+                <div
+                  key={`${row}-${col}`}
+                  style={{
+                    position: 'absolute',
+                    left: col * 280 + (row % 2 === 0 ? 140 : 0),
+                    top: row * 160,
+                    fontSize: 13,
+                    fontFamily: "'Cinzel', serif",
+                    fontWeight: 600,
+                    color: '#c9a84c',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '0.08em',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div>{studentName || 'PROTECTED'}</div>
+                  <div style={{ fontSize: 9, fontWeight: 400, opacity: 0.7 }}>
+                    {sessionStamp} | MACAL EMPIRE
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ── Imperial Seal Background Effect ── */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            zIndex: 1,
+            background: `
+              radial-gradient(ellipse at 50% 40%, ${accentColor}06 0%, transparent 50%),
+              radial-gradient(ellipse at 20% 70%, rgba(201,168,76,0.03) 0%, transparent 40%),
+              radial-gradient(ellipse at 80% 70%, rgba(201,168,76,0.03) 0%, transparent 40%)
+            `,
+          }}
+        />
+
+        {/* ── Central Imperial Seal ── */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ zIndex: 1 }}
+        >
+          <div
+            style={{
+              width: 280,
+              height: 280,
+              borderRadius: '50%',
+              border: `1px solid ${accentColor}08`,
+              boxShadow: `0 0 80px ${accentColor}06, inset 0 0 60px ${accentColor}04`,
+              opacity: 0.15,
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 160,
+              height: 160,
+              borderRadius: '50%',
+              border: `1px solid ${accentColor}12`,
+              opacity: 0.2,
+            }}
+          />
+        </div>
+
         {/* Corner decorations */}
-        <div className="absolute top-4 left-4 w-10 h-10 border-l-2 border-t-2 rounded-tl-md" style={{ borderColor: `${accentColor}40` }} />
-        <div className="absolute top-4 right-4 w-10 h-10 border-r-2 border-t-2 rounded-tr-md" style={{ borderColor: `${accentColor}40` }} />
-        <div className="absolute bottom-4 left-4 w-10 h-10 border-l-2 border-b-2 rounded-bl-md" style={{ borderColor: `${accentColor}40` }} />
-        <div className="absolute bottom-4 right-4 w-10 h-10 border-r-2 border-b-2 rounded-br-md" style={{ borderColor: `${accentColor}40` }} />
+        <div className="absolute top-4 left-4 w-10 h-10 border-l-2 border-t-2 rounded-tl-md" style={{ borderColor: `${accentColor}40`, zIndex: 2 }} />
+        <div className="absolute top-4 right-4 w-10 h-10 border-r-2 border-t-2 rounded-tr-md" style={{ borderColor: `${accentColor}40`, zIndex: 2 }} />
+        <div className="absolute bottom-4 left-4 w-10 h-10 border-l-2 border-b-2 rounded-bl-md" style={{ borderColor: `${accentColor}40`, zIndex: 2 }} />
+        <div className="absolute bottom-4 right-4 w-10 h-10 border-r-2 border-b-2 rounded-br-md" style={{ borderColor: `${accentColor}40`, zIndex: 2 }} />
 
         {/* Inner glow */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 30%, ${accentColor}08 0%, transparent 60%)` }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 30%, ${accentColor}08 0%, transparent 60%)`, zIndex: 2 }} />
 
         {/* Top gold line */}
-        <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}80, transparent)` }} />
+        <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}80, transparent)`, zIndex: 2 }} />
 
         <div className="relative z-10 text-center">
           {/* Logo */}
@@ -194,10 +286,20 @@ export function EmpireCertificate({
           <p className="font-[family-name:var(--font-heading)] text-[10px] sm:text-xs tracking-[0.15em] text-[#8b7355]">
             FORGED IN LANGUAGE. CROWNED IN MASTERY.
           </p>
+
+          {/* ── Certificate Watermark Footer ── */}
+          <div className="mt-6 pt-3 border-t border-[rgba(201,168,76,0.08)]">
+            <p className="text-[7px] font-[family-name:var(--font-heading)] tracking-[0.2em] uppercase text-[rgba(139,115,85,0.35)]">
+              MACAL EMPIRE PROPRIETARY CERTIFICATE — {studentEmail || studentName} — {sessionStamp}
+            </p>
+            <p className="text-[6px] text-[rgba(139,115,85,0.25)] mt-1">
+              Protected proprietary content of MACAL EMPIRE. Unauthorized copying or redistribution prohibited.
+            </p>
+          </div>
         </div>
 
         {/* Bottom gold line */}
-        <div className="absolute inset-x-0 bottom-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}80, transparent)` }} />
+        <div className="absolute inset-x-0 bottom-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}80, transparent)`, zIndex: 2 }} />
       </div>
 
       {/* Download button */}

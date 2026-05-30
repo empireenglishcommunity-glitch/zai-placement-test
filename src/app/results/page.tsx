@@ -38,6 +38,9 @@ import {
   GlowingBorder,
   EmpireCertificate,
   CelebrationAnimation,
+  EmpireWatermark,
+  ContentProtection,
+  LegalNotice,
 } from '@/components/empire';
 import { MODULE_INFO } from '@/lib/constants';
 import {
@@ -397,8 +400,16 @@ function ResultsContent() {
   ) : null;
 
   return (
-    <div className="min-h-screen flex flex-col empire-bg">
+    <div className="min-h-screen flex flex-col empire-bg protected-content">
+      <ContentProtection
+        detectDevTools={true}
+        blockShortcuts={true}
+        blockContextMenu={true}
+        blockPrint={false}
+        detectVisibilityChange={false}
+      />
       <EnhancedParticleBackground />
+      <EmpireWatermark context="Imperial Decree — Results" />
       <Navbar />
 
       {/* Celebration Animation Overlay */}
@@ -885,6 +896,7 @@ function ResultsContent() {
                     listeningScore={results.listeningScore}
                     vocabularyScore={results.vocabularyScore}
                     grammarScore={results.grammarScore}
+                    studentEmail={session?.user?.email || undefined}
                   />
                 </div>
               </motion.section>
@@ -932,6 +944,7 @@ function ResultsContent() {
       </main>
 
       <div className="mt-auto">
+        <LegalNotice variant="footer" />
         <Footer />
       </div>
     </div>

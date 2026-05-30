@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateLevelAssignment } from '@/services/scoring-service';
+import { withApiProtection } from '@/lib/api-protection';
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const scores = await req.json();
 
@@ -41,3 +42,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Calculation failed' }, { status: 500 });
   }
 }
+
+// Apply rate limiting — assessment results are sensitive
+export const POST = withApiProtection({ rateLimit: 'assessment', requireAuth: true })(handler);

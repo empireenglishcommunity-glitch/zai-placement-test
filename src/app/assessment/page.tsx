@@ -14,6 +14,9 @@ import {
   SectionDivider,
   GlowingBorder,
   TermsAcceptanceGate,
+  ContentProtection,
+  EmpireWatermark,
+  LegalNotice,
 } from '@/components/empire';
 import { MODULE_INFO } from '@/lib/constants';
 import type { ModuleType } from '@/lib/types';
@@ -278,7 +281,15 @@ export default function AssessmentPage() {
 
   return (
     <div className="min-h-screen flex flex-col empire-bg protected-content">
+      <ContentProtection
+        detectDevTools={true}
+        blockShortcuts={true}
+        blockContextMenu={true}
+        blockPrint={true}
+        detectVisibilityChange={false}
+      />
       <ParticleBackground />
+      <EmpireWatermark context="Assessment Hub" />
       <Navbar />
 
       {/* ── Hero Section ──────────────────────────────────── */}
@@ -451,6 +462,7 @@ export default function AssessmentPage() {
       </section>
 
       <div className="mt-auto">
+        <LegalNotice variant="footer" />
         <Footer />
       </div>
     </div>

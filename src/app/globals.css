@@ -263,3 +263,35 @@
   -ms-user-select: text;
   user-select: text;
 }
+
+/* Prevent drag of protected content images and text */
+.protected-content img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Screenshot deterrent: subtle overlay on print */
+@media print {
+  .protected-content::after {
+    content: 'MACAL EMPIRE — PROTECTED CONTENT — UNAUTHORIZED REPRODUCTION PROHIBITED';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-size: 24px;
+    color: rgba(201, 168, 76, 0.3);
+    z-index: 99999;
+    pointer-events: none;
+    transform: rotate(-45deg);
+    letter-spacing: 0.2em;
+  }
+}

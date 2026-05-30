@@ -17,3 +17,6 @@ export { EmpireAudioControls } from './EmpireAudioControls';
 export { EmpireCertificate } from './EmpireCertificate';
 export { CelebrationAnimation } from './CelebrationAnimation';
 export { TermsAcceptanceGate } from './TermsAcceptanceGate';
+export { EmpireWatermark, InlineWatermark } from './EmpireWatermark';
+export { ContentProtection, useContentProtection } from './ContentProtection';
+export { LegalNotice } from './LegalNotice';

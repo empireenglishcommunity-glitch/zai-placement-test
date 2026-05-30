@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { withApiProtection } from '@/lib/api-protection';
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { audioBase64, passage, part } = await req.json();
 
@@ -147,3 +148,6 @@ Respond in JSON only:
     return NextResponse.json({ evaluation: fallbackEval });
   }
 }
+
+// Apply strict rate limiting for expensive AI endpoints
+export const POST = withApiProtection({ rateLimit: 'aiEvaluation', requireAuth: true, detectBots: true, blockBots: true })(handler);

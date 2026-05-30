@@ -15,6 +15,9 @@ import {
   SectionDivider,
   ImperialRankBadge,
   TacticalPanel,
+  ContentProtection,
+  EmpireWatermark,
+  LegalNotice,
 } from '@/components/empire';
 import { VOCABULARY_CONFIG, VOCABULARY_LEVELS, MODULE_INFO, EMPIRE_COLORS } from '@/lib/constants';
 import { IMPERIAL_RANKS, IMPERIAL_RANK_DESCRIPTIONS } from '@/lib/types';
@@ -405,10 +408,20 @@ export default function VocabularyAssessmentPage() {
   if (phase === 'intro') {
     return (
       <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
+        <ContentProtection
+          detectDevTools={true}
+          blockShortcuts={true}
+          blockContextMenu={true}
+          blockPrint={true}
+          detectVisibilityChange={false}
+        />
         <ParticleBackground />
+        <EmpireWatermark context="Vocabulary Trial" />
         <Navbar />
         <main className="flex-1 pt-20 pb-12 relative z-10">
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
+            {/* Proprietary Content Banner */}
+            <LegalNotice variant="banner" />
             {/* Hero */}
             <motion.div
               className="text-center mb-12"
@@ -563,10 +576,20 @@ export default function VocabularyAssessmentPage() {
 
     return (
       <div className="min-h-screen flex flex-col bg-[#0a0a0a] protected-content">
+        <ContentProtection
+          detectDevTools={true}
+          blockShortcuts={true}
+          blockContextMenu={true}
+          blockPrint={true}
+          detectVisibilityChange={true}
+        />
         <ParticleBackground />
+        <EmpireWatermark context="Vocabulary Trial — Active" />
         <Navbar />
         <main className="flex-1 pt-20 pb-12 relative z-10">
           <div className="max-w-3xl mx-auto px-4 sm:px-6">
+            {/* Active Assessment Banner */}
+            <LegalNotice variant="banner" />
             {/* Header: Progress + Timer */}
             <motion.div
               className="mb-6"
