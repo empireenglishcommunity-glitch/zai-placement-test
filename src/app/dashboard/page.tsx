@@ -20,6 +20,8 @@ import {
   Loader2,
   Crown,
   TrendingUp,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   ParticleBackground,
@@ -76,6 +78,35 @@ interface DashboardData {
   hasAssessments: boolean;
 }
 
+// ─── Default data for new/guest users ───────────────────────
+
+const DEFAULT_DATA: DashboardData = {
+  user: {
+    id: '',
+    email: '',
+    displayName: 'Recruit',
+  },
+  profile: {
+    currentLevel: 0,
+    assessmentCount: 0,
+    streak: 0,
+  },
+  moduleProgress: {
+    speaking: { status: 'not_started', score: null, level: null },
+    listening: { status: 'not_started', score: null, level: null },
+    vocabulary: { status: 'not_started', score: null, level: null },
+    grammar: { status: 'not_started', score: null, level: null },
+  },
+  activity: [],
+  stats: {
+    assessmentsCompleted: 0,
+    currentLevel: 0,
+    vocabularyEstimate: null,
+    grammarScore: null,
+  },
+  hasAssessments: false,
+};
+
 // ─── Animation Config ───────────────────────────────────────
 
 const containerVariants = {
@@ -116,7 +147,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [apiError, setApiError] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -137,15 +168,34 @@ export default function DashboardPage() {
       })
       .then((dashboardData: DashboardData) => {
         setData(dashboardData);
+        setApiError(false);
       })
       .catch((err) => {
         console.error('Dashboard fetch error:', err);
-        setError('Failed to load your command center data.');
+        // Don't set an error that blocks rendering — use defaults
+        setApiError(true);
+        setData(null);
       })
       .finally(() => setIsLoading(false));
   }, [status]);
 
-  // Loading state
+  // Use real data if available, otherwise fall back to defaults using session info
+  const displayData: DashboardData = data || {
+    ...DEFAULT_DATA,
+    user: {
+      id: (session?.user as Record<string, unknown>)?.id as string || '',
+      email: session?.user?.email || '',
+      displayName: (session?.user as Record<string, unknown>)?.name as string || session?.user?.email?.split('@')[0] || 'Recruit',
+    },
+  };
+
+  const currentLevel = displayData.profile.currentLevel as ImperialLevel;
+  const completedModules = Object.values(displayData.moduleProgress).filter(
+    (p) => p.status === 'completed'
+  ).length;
+  const totalModules = 4;
+
+  // Loading state — shown ONLY while session is loading or initial fetch
   if (isLoading || status === 'loading') {
     return (
       <div className="min-h-screen flex flex-col empire-bg">
@@ -181,38 +231,9 @@ export default function DashboardPage() {
     );
   }
 
-  // Error state
-  if (error || !data) {
-    return (
-      <div className="min-h-screen flex flex-col empire-bg">
-        <ParticleBackground />
-        <Navbar />
-        <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
-          <div className="text-center space-y-6">
-            <Crown className="w-16 h-16 text-[#8b7355] mx-auto" />
-            <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mb-2">
-              Unable to Load Command Center
-            </h2>
-            <p className="text-[#8b7355] font-[family-name:var(--font-sans)]">
-              {error || 'Something went wrong. Please try again.'}
-            </p>
-            <Link href="/dashboard">
-              <ImperialButton variant="primary" size="md">Retry</ImperialButton>
-            </Link>
-          </div>
-        </main>
-        <div className="mt-auto">
-          <Footer />
-        </div>
-      </div>
-    );
-  }
-
-  const currentLevel = data.profile.currentLevel as ImperialLevel;
-  const completedModules = Object.values(data.moduleProgress).filter(
-    (p) => p.status === 'completed'
-  ).length;
-  const totalModules = 4;
+  // ═══════════════════════════════════════════════════════════
+  // ALWAYS RENDER THE FULL DASHBOARD — never a blank error page
+  // ═══════════════════════════════════════════════════════════
 
   return (
     <div className="min-h-screen flex flex-col empire-bg">
@@ -227,6 +248,34 @@ export default function DashboardPage() {
           animate="visible"
           className="space-y-10"
         >
+          {/* ═══ API Warning Banner (only shows if API failed, doesn't block content) ═══ */}
+          {apiError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(205,127,50,0.1)] border border-[rgba(205,127,50,0.3)]"
+            >
+              <AlertTriangle className="w-4 h-4 text-[#cd7f32] shrink-0" />
+              <p className="text-[#cd7f32] text-sm font-[family-name:var(--font-sans)] flex-1">
+                Some data may not be up to date. Your trial progress will sync shortly.
+              </p>
+              <button
+                onClick={() => {
+                  setIsLoading(true);
+                  setApiError(false);
+                  fetch('/api/dashboard')
+                    .then(res => res.json())
+                    .then((d: DashboardData) => { setData(d); setApiError(false); })
+                    .catch(() => setApiError(true))
+                    .finally(() => setIsLoading(false));
+                }}
+                className="text-[#cd7f32] hover:text-[#c9a84c] transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+
           {/* ═══ Welcome Section ═══ */}
           <motion.section variants={itemVariants} className="text-center space-y-4">
             <motion.div
@@ -235,7 +284,7 @@ export default function DashboardPage() {
               transition={{ duration: 0.6, ease: 'easeOut' }}
             >
               <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl lg:text-6xl font-bold gold-shimmer">
-                Welcome, {data.user.displayName}
+                Welcome, {displayData.user.displayName}
               </h1>
             </motion.div>
 
@@ -252,7 +301,9 @@ export default function DashboardPage() {
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             >
-              &ldquo;The Empire awaits your next trial&rdquo;
+              &ldquo;{currentLevel === 0
+                ? 'The Empire awaits your first trial'
+                : 'The Empire awaits your next trial'}&rdquo;
             </motion.p>
 
             <div className="pt-2">
@@ -356,9 +407,10 @@ export default function DashboardPage() {
                   (typeof MODULE_INFO)[ModuleType],
                 ][]
               ).map(([moduleKey, info]) => {
-                const progress = data.moduleProgress[moduleKey] || { status: 'not_started' as AssessmentStatus, score: null, level: null };
+                const progress = displayData.moduleProgress[moduleKey] || { status: 'not_started' as AssessmentStatus, score: null, level: null };
                 const isCompleted = progress.status === 'completed';
                 const isInProgress = progress.status === 'in_progress';
+                const isNotStarted = progress.status === 'not_started';
 
                 return (
                   <motion.div
@@ -399,7 +451,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        {/* Score or Progress */}
+                        {/* Progress Bar — always visible with appropriate state */}
                         {isCompleted && progress.score !== null && (
                           <div className="mb-3">
                             <ProgressBar
@@ -431,7 +483,7 @@ export default function DashboardPage() {
                           </div>
                         )}
 
-                        {progress.status === 'not_started' && (
+                        {isNotStarted && (
                           <div className="mb-3">
                             <div className="h-1.5 w-full rounded-full bg-[rgba(201,168,76,0.1)]" />
                           </div>
@@ -484,7 +536,7 @@ export default function DashboardPage() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5, duration: 0.5 }}
                   >
-                    {data.stats.assessmentsCompleted}
+                    {displayData.stats.assessmentsCompleted}
                   </motion.p>
                   <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
                     Trials Completed
@@ -528,8 +580,8 @@ export default function DashboardPage() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.7, duration: 0.5 }}
                   >
-                    {data.stats.vocabularyEstimate
-                      ? data.stats.vocabularyEstimate.toLocaleString()
+                    {displayData.stats.vocabularyEstimate
+                      ? displayData.stats.vocabularyEstimate.toLocaleString()
                       : '\u2014'}
                   </motion.p>
                   <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
@@ -552,8 +604,8 @@ export default function DashboardPage() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.8, duration: 0.5 }}
                   >
-                    {data.stats.grammarScore !== null
-                      ? `${data.stats.grammarScore}%`
+                    {displayData.stats.grammarScore !== null
+                      ? `${displayData.stats.grammarScore}%`
                       : '\u2014'}
                   </motion.p>
                   <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
@@ -574,9 +626,9 @@ export default function DashboardPage() {
                 Recent Activity
               </h2>
               <TacticalPanel accentSide="left" accentColor="#c9a84c">
-                {data.activity.length > 0 ? (
+                {displayData.activity.length > 0 ? (
                   <div className="space-y-0 max-h-96 overflow-y-auto">
-                    {data.activity.map((entry, index) => (
+                    {displayData.activity.map((entry, index) => (
                       <motion.div
                         key={entry.id}
                         initial={{ opacity: 0, x: -10 }}
@@ -664,7 +716,7 @@ export default function DashboardPage() {
                       </h3>
                     </div>
                     <div className="space-y-2 ml-6">
-                      {getRecommendedActions(data.moduleProgress).map((action, i) => (
+                      {getRecommendedActions(displayData.moduleProgress).map((action, i) => (
                         <motion.div
                           key={i}
                           initial={{ opacity: 0, x: -5 }}
@@ -706,7 +758,7 @@ export default function DashboardPage() {
                     <TrendingUp className="w-4 h-4 text-[#8b7355]" />
                     <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)]">
                       {completedModules === 0
-                        ? <>Complete your first trial to earn your initial rank — advance to <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">Warrior</span></>
+                        ? <>Complete your first trial to earn your initial rank — advance to <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">Initiate</span></>
                         : completedModules < 4
                           ? <>Complete {4 - completedModules} more trial{4 - completedModules > 1 ? 's' : ''} to advance to{' '}
                               <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">
@@ -732,7 +784,7 @@ export default function DashboardPage() {
               <ImperialButton variant="primary" size="lg">
                 <span className="flex items-center gap-2">
                   <Swords className="w-5 h-5" />
-                  Begin Your Next Trial
+                  {completedModules === 0 ? 'Begin Your First Trial' : 'Begin Your Next Trial'}
                 </span>
               </ImperialButton>
             </Link>

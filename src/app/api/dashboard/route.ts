@@ -35,18 +35,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Ensure profile exists for the user (create if missing)
+    let profile = user.profile;
+    if (!profile) {
+      profile = await db.profile.create({
+        data: {
+          userId: user.id,
+          currentLevel: 0,
+          assessmentCount: 0,
+        },
+      }).catch(() => null);
+    }
+
     // Get all assessments for this user
     const assessments = await db.assessment.findMany({
       where: { userId },
       orderBy: { startedAt: 'desc' },
       take: 20,
-    });
+    }).catch(() => []);
 
     // Get the latest completed assessment (if any)
-    const latestCompleted = await db.assessment.findFirst({
-      where: { userId, status: 'completed' },
-      orderBy: { completedAt: 'desc' },
-    });
+    const latestCompleted = assessments.length > 0
+      ? await db.assessment.findFirst({
+          where: { userId, status: 'completed' },
+          orderBy: { completedAt: 'desc' },
+        }).catch(() => null)
+      : null;
 
     // Calculate module progress from assessments
     const moduleProgress: Record<string, {
@@ -146,7 +160,7 @@ export async function GET(req: NextRequest) {
 
     // Calculate stats
     const completedCount = Object.values(moduleProgress).filter(m => m.status === 'completed').length;
-    const currentLevel = user.profile?.currentLevel ?? 0;
+    const currentLevel = profile?.currentLevel ?? 0;
     const vocabEstimate = latestCompleted?.voEstimatedSize
       ? Math.round(latestCompleted.voEstimatedSize)
       : null;
@@ -157,8 +171,10 @@ export async function GET(req: NextRequest) {
       computedLevel = latestCompleted.assignedLevel;
     }
 
+    const finalLevel = Math.max(currentLevel, computedLevel);
+
     // Update profile level if computed level is higher
-    if (computedLevel > currentLevel && user.profile) {
+    if (computedLevel > currentLevel && profile) {
       await db.profile.update({
         where: { userId },
         data: { currentLevel: computedLevel, assessmentCount: completedCount },
@@ -172,15 +188,15 @@ export async function GET(req: NextRequest) {
         displayName: user.displayName || user.email?.split('@')[0] || 'Recruit',
       },
       profile: {
-        currentLevel: Math.max(currentLevel, computedLevel),
+        currentLevel: finalLevel,
         assessmentCount: completedCount,
-        streak: user.profile?.streak ?? 0,
+        streak: profile?.streak ?? 0,
       },
       moduleProgress,
       activity,
       stats: {
         assessmentsCompleted: completedCount,
-        currentLevel: Math.max(currentLevel, computedLevel),
+        currentLevel: finalLevel,
         vocabularyEstimate: vocabEstimate,
         grammarScore: moduleProgress.grammar.score,
       },

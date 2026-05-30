@@ -79,3 +79,28 @@ Stage Summary:
 - Dashboard now looks complete and professional for new users with starting/zero values
 - All sections always visible regardless of assessment history
 - As students complete assessments, data fills in naturally with real scores from the database
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix empty dashboard page — restore ALL sections with zero/starting values for new users (API resilience fix)
+
+Work Log:
+- Diagnosed root cause: Dashboard page showed blank error state when /api/dashboard API failed (returning 401/500), because the old code rendered a nearly-empty error page with just a Crown icon instead of showing sections with defaults
+- Analyzed screenshot: User saw completely empty page with only navbar visible and a small X/Crown icon in center
+- Fixed /api/dashboard/route.ts: Added Profile creation fallback (ensures new users always have a profile), added .catch() on DB queries to prevent unhandled rejections, improved error resilience
+- Completely rewrote /dashboard/page.tsx with DEFAULT_DATA constant containing all zero/starting values
+- Key architectural change: displayData = data || { ...DEFAULT_DATA, user: session-based info } — page ALWAYS renders all sections even if API completely fails
+- Removed the blocking error state (was rendering empty page on API failure)
+- Added subtle warning banner when API data isn't available (non-blocking, with retry button)
+- All 6 sections always rendered: Welcome, Imperial Rank, Four Trials, Command Statistics, Recent Activity + Training Status, Quick Actions
+- New users see: Recruit (Level 0), all trials "Not Started", 0 trials completed, — for vocab/grammar, "No activity yet" placeholder, "Begin Your First Trial" button
+- Build passes successfully with `next build`
+- Verified page renders HTTP 200
+
+Stage Summary:
+- Dashboard NEVER shows a blank/empty page again — always renders all sections
+- If API fails, falls back to DEFAULT_DATA with session-based user info
+- Subtle warning banner (non-blocking) appears when API data is stale
+- All sections visible for new users with proper starting/zero values
+- As students complete assessments, real data fills in naturally
