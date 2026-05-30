@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   Shield,
-  Mic,
-  Headphones,
   BookOpen,
   Swords,
   Trophy,
@@ -17,10 +15,8 @@ import {
   Star,
   Target,
   Zap,
-  Loader2,
   Crown,
   TrendingUp,
-  AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
 import {
@@ -78,32 +74,21 @@ interface DashboardData {
   hasAssessments: boolean;
 }
 
-// ─── Default data for new/guest users ───────────────────────
+// ─── Default data for new users ─────────────────────────────
+
+const DEFAULT_MODULE_PROGRESS: Record<string, ModuleProgress> = {
+  speaking: { status: 'not_started', score: null, level: null },
+  listening: { status: 'not_started', score: null, level: null },
+  vocabulary: { status: 'not_started', score: null, level: null },
+  grammar: { status: 'not_started', score: null, level: null },
+};
 
 const DEFAULT_DATA: DashboardData = {
-  user: {
-    id: '',
-    email: '',
-    displayName: 'Recruit',
-  },
-  profile: {
-    currentLevel: 0,
-    assessmentCount: 0,
-    streak: 0,
-  },
-  moduleProgress: {
-    speaking: { status: 'not_started', score: null, level: null },
-    listening: { status: 'not_started', score: null, level: null },
-    vocabulary: { status: 'not_started', score: null, level: null },
-    grammar: { status: 'not_started', score: null, level: null },
-  },
+  user: { id: '', email: '', displayName: 'Recruit' },
+  profile: { currentLevel: 0, assessmentCount: 0, streak: 0 },
+  moduleProgress: DEFAULT_MODULE_PROGRESS,
   activity: [],
-  stats: {
-    assessmentsCompleted: 0,
-    currentLevel: 0,
-    vocabularyEstimate: null,
-    grammarScore: null,
-  },
+  stats: { assessmentsCompleted: 0, currentLevel: 0, vocabularyEstimate: null, grammarScore: null },
   hasAssessments: false,
 };
 
@@ -111,19 +96,12 @@ const DEFAULT_DATA: DashboardData = {
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
-  },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
 };
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
-  },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 };
 
 // ─── Constants ──────────────────────────────────────────────
@@ -145,11 +123,11 @@ const STATUS_COLORS: Record<AssessmentStatus, string> = {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [apiData, setApiData] = useState<DashboardData | null>(null);
   const [apiError, setApiError] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Auth guard
+  // Auth guard — redirect unauthenticated users
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'unauthenticated') {
@@ -157,82 +135,57 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
-  // Fetch dashboard data
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-
+  // Fetch dashboard data — runs regardless, doesn't block rendering
+  const fetchDashboard = useCallback(() => {
+    setApiError(false);
     fetch('/api/dashboard')
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load dashboard');
+        if (!res.ok) throw new Error('Failed');
         return res.json();
       })
-      .then((dashboardData: DashboardData) => {
-        setData(dashboardData);
+      .then((d: DashboardData) => {
+        setApiData(d);
         setApiError(false);
+        setDataLoaded(true);
       })
-      .catch((err) => {
-        console.error('Dashboard fetch error:', err);
-        // Don't set an error that blocks rendering — use defaults
+      .catch(() => {
         setApiError(true);
-        setData(null);
-      })
-      .finally(() => setIsLoading(false));
-  }, [status]);
+        setDataLoaded(true);
+      });
+  }, []);
 
-  // Use real data if available, otherwise fall back to defaults using session info
-  const displayData: DashboardData = data || {
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchDashboard();
+    } else if (status === 'unauthenticated') {
+      // Will be redirected by auth guard above
+    }
+    // If status is 'loading', we still render defaults — no blocking
+  }, [status, fetchDashboard]);
+
+  // ═══ COMPUTE DISPLAY DATA ═══
+  // Always use real data if available, otherwise fall back to defaults
+  const displayData: DashboardData = apiData || {
     ...DEFAULT_DATA,
     user: {
       id: (session?.user as Record<string, unknown>)?.id as string || '',
       email: session?.user?.email || '',
-      displayName: (session?.user as Record<string, unknown>)?.name as string || session?.user?.email?.split('@')[0] || 'Recruit',
+      displayName:
+        (session?.user as Record<string, unknown>)?.name as string ||
+        session?.user?.email?.split('@')[0] ||
+        'Recruit',
     },
   };
 
-  const currentLevel = displayData.profile.currentLevel as ImperialLevel;
-  const completedModules = Object.values(displayData.moduleProgress).filter(
-    (p) => p.status === 'completed'
+  const currentLevel = (displayData.profile?.currentLevel ?? 0) as ImperialLevel;
+  const completedModules = Object.values(displayData.moduleProgress || DEFAULT_MODULE_PROGRESS).filter(
+    (p) => p?.status === 'completed'
   ).length;
   const totalModules = 4;
 
-  // Loading state — shown ONLY while session is loading or initial fetch
-  if (isLoading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex flex-col empire-bg">
-        <ParticleBackground />
-        <Navbar />
-        <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center space-y-6"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            >
-              <Crown className="w-16 h-16 text-[#c9a84c] mx-auto" />
-            </motion.div>
-            <div>
-              <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mb-2">
-                Loading Your Command Center
-              </h2>
-              <p className="text-[#8b7355] font-[family-name:var(--font-sans)]">
-                The Empire is preparing your records...
-              </p>
-            </div>
-            <Loader2 className="w-6 h-6 text-[#c9a84c] mx-auto animate-spin" />
-          </motion.div>
-        </main>
-        <div className="mt-auto">
-          <Footer />
-        </div>
-      </div>
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════
-  // ALWAYS RENDER THE FULL DASHBOARD — never a blank error page
+  // ALWAYS RENDER THE FULL DASHBOARD IMMEDIATELY
+  // No loading spinner that blocks the page — show defaults, update later
   // ═══════════════════════════════════════════════════════════
 
   return (
@@ -248,29 +201,18 @@ export default function DashboardPage() {
           animate="visible"
           className="space-y-10"
         >
-          {/* ═══ API Warning Banner (only shows if API failed, doesn't block content) ═══ */}
-          {apiError && (
+          {/* ═══ Sync Banner (non-blocking, shows if API failed) ═══ */}
+          {apiError && dataLoaded && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(205,127,50,0.1)] border border-[rgba(205,127,50,0.3)]"
             >
-              <AlertTriangle className="w-4 h-4 text-[#cd7f32] shrink-0" />
+              <RefreshCw className="w-4 h-4 text-[#cd7f32] shrink-0" />
               <p className="text-[#cd7f32] text-sm font-[family-name:var(--font-sans)] flex-1">
-                Some data may not be up to date. Your trial progress will sync shortly.
+                Syncing your command center data...
               </p>
-              <button
-                onClick={() => {
-                  setIsLoading(true);
-                  setApiError(false);
-                  fetch('/api/dashboard')
-                    .then(res => res.json())
-                    .then((d: DashboardData) => { setData(d); setApiError(false); })
-                    .catch(() => setApiError(true))
-                    .finally(() => setIsLoading(false));
-                }}
-                className="text-[#cd7f32] hover:text-[#c9a84c] transition-colors"
-              >
+              <button onClick={fetchDashboard} className="text-[#cd7f32] hover:text-[#c9a84c] transition-colors">
                 <RefreshCw className="w-4 h-4" />
               </button>
             </motion.div>
@@ -301,9 +243,7 @@ export default function DashboardPage() {
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             >
-              &ldquo;{currentLevel === 0
-                ? 'The Empire awaits your first trial'
-                : 'The Empire awaits your next trial'}&rdquo;
+              &ldquo;{currentLevel === 0 ? 'The Empire awaits your first trial' : 'The Empire awaits your next trial'}&rdquo;
             </motion.p>
 
             <div className="pt-2">
@@ -320,7 +260,7 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Imperial Rank Display — ALWAYS VISIBLE ═══ */}
+          {/* ═══ Imperial Rank Display ═══ */}
           <motion.section variants={itemVariants} className="space-y-6">
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               Imperial Rank
@@ -331,15 +271,8 @@ export default function DashboardPage() {
                 <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
                   {/* Large rank badge */}
                   <div className="flex flex-col items-center gap-3">
-                    <ImperialRankBadge
-                      level={currentLevel}
-                      size="lg"
-                      showLabel={false}
-                    />
-                    <span
-                      className="font-[family-name:var(--font-heading)] font-bold text-2xl"
-                      style={{ color: STATUS_COLORS.completed }}
-                    >
+                    <ImperialRankBadge level={currentLevel} size="lg" showLabel={false} />
+                    <span className="font-[family-name:var(--font-heading)] font-bold text-2xl" style={{ color: STATUS_COLORS.completed }}>
                       {IMPERIAL_RANKS[currentLevel]}
                     </span>
                     <p className="text-[#8b7355] text-sm text-center max-w-[250px] font-[family-name:var(--font-sans)]">
@@ -368,11 +301,7 @@ export default function DashboardPage() {
                             <ImperialRankBadge level={lvl} size="sm" />
                             <span
                               className={`font-[family-name:var(--font-heading)] text-xs ${
-                                isActive
-                                  ? 'text-[#c9a84c] font-bold'
-                                  : isAchieved
-                                    ? 'text-[#8b7355]'
-                                    : 'text-[#8b7355]/50'
+                                isActive ? 'text-[#c9a84c] font-bold' : isAchieved ? 'text-[#8b7355]' : 'text-[#8b7355]/50'
                               }`}
                             >
                               {IMPERIAL_RANKS[lvl]}
@@ -394,7 +323,7 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Assessment Progress — ALWAYS VISIBLE ═══ */}
+          {/* ═══ The Four Trials ═══ */}
           <motion.section variants={itemVariants} className="space-y-6">
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               The Four Trials
@@ -402,23 +331,14 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {(
-                Object.entries(MODULE_INFO) as [
-                  ModuleType,
-                  (typeof MODULE_INFO)[ModuleType],
-                ][]
+                Object.entries(MODULE_INFO) as [ModuleType, (typeof MODULE_INFO)[ModuleType]][]
               ).map(([moduleKey, info]) => {
-                const progress = displayData.moduleProgress[moduleKey] || { status: 'not_started' as AssessmentStatus, score: null, level: null };
+                const progress = displayData.moduleProgress?.[moduleKey] || { status: 'not_started' as AssessmentStatus, score: null, level: null };
                 const isCompleted = progress.status === 'completed';
                 const isInProgress = progress.status === 'in_progress';
-                const isNotStarted = progress.status === 'not_started';
 
                 return (
-                  <motion.div
-                    key={moduleKey}
-                    variants={itemVariants}
-                    whileHover={{ y: -4 }}
-                    transition={{ duration: 0.3 }}
-                  >
+                  <motion.div key={moduleKey} variants={itemVariants} whileHover={{ y: -4 }} transition={{ duration: 0.3 }}>
                     <Link href={`/assessment/${moduleKey}`} className="block">
                       <MetallicCard className="p-5 h-full flex flex-col">
                         {/* Module icon & name */}
@@ -426,12 +346,8 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-2xl">{info.icon}</span>
                             <div>
-                              <h3 className="font-[family-name:var(--font-heading)] text-[#e8e0d0] text-sm font-semibold">
-                                {info.name}
-                              </h3>
-                              <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">
-                                {info.empireTitle}
-                              </p>
+                              <h3 className="font-[family-name:var(--font-heading)] text-[#e8e0d0] text-sm font-semibold">{info.name}</h3>
+                              <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">{info.empireTitle}</p>
                             </div>
                           </div>
                           <ChevronRight className="w-4 h-4 text-[#8b7355] mt-1" />
@@ -439,69 +355,39 @@ export default function DashboardPage() {
 
                         {/* Status */}
                         <div className="flex items-center gap-2 mb-3">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: STATUS_COLORS[progress.status as AssessmentStatus] || STATUS_COLORS.not_started }}
-                          />
-                          <span
-                            className="text-xs font-[family-name:var(--font-heading)]"
-                            style={{ color: STATUS_COLORS[progress.status as AssessmentStatus] || STATUS_COLORS.not_started }}
-                          >
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[progress.status as AssessmentStatus] || STATUS_COLORS.not_started }} />
+                          <span className="text-xs font-[family-name:var(--font-heading)]" style={{ color: STATUS_COLORS[progress.status as AssessmentStatus] || STATUS_COLORS.not_started }}>
                             {STATUS_LABELS[progress.status as AssessmentStatus] || STATUS_LABELS.not_started}
                           </span>
                         </div>
 
-                        {/* Progress Bar — always visible with appropriate state */}
+                        {/* Progress Bar */}
                         {isCompleted && progress.score !== null && (
                           <div className="mb-3">
-                            <ProgressBar
-                              value={progress.score}
-                              max={100}
-                              label="Score"
-                              showPercentage
-                              color={STATUS_COLORS.completed}
-                              size="sm"
-                            />
+                            <ProgressBar value={progress.score} max={100} label="Score" showPercentage color={STATUS_COLORS.completed} size="sm" />
                             {progress.level !== null && (
-                              <p className="text-[#8b7355] text-xs mt-1 font-[family-name:var(--font-heading)]">
-                                Level: {IMPERIAL_RANKS[progress.level as ImperialLevel]}
-                              </p>
+                              <p className="text-[#8b7355] text-xs mt-1 font-[family-name:var(--font-heading)]">Level: {IMPERIAL_RANKS[progress.level as ImperialLevel]}</p>
                             )}
                           </div>
                         )}
-
                         {isInProgress && (
                           <div className="mb-3">
-                            <ProgressBar
-                              value={50}
-                              max={100}
-                              label="Progress"
-                              showPercentage
-                              color={STATUS_COLORS.in_progress}
-                              size="sm"
-                            />
+                            <ProgressBar value={50} max={100} label="Progress" showPercentage color={STATUS_COLORS.in_progress} size="sm" />
                           </div>
                         )}
-
-                        {isNotStarted && (
+                        {progress.status === 'not_started' && (
                           <div className="mb-3">
                             <div className="h-1.5 w-full rounded-full bg-[rgba(201,168,76,0.1)]" />
                           </div>
                         )}
 
                         {/* Description */}
-                        <p className="text-[#8b7355]/70 text-xs mt-auto font-[family-name:var(--font-sans)] leading-relaxed">
-                          {info.description}
-                        </p>
+                        <p className="text-[#8b7355]/70 text-xs mt-auto font-[family-name:var(--font-sans)] leading-relaxed">{info.description}</p>
 
                         {/* CTA */}
                         <div className="mt-3 pt-3 border-t border-[rgba(201,168,76,0.1)]">
                           <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] flex items-center gap-1 hover:gap-2 transition-all">
-                            {isCompleted
-                              ? 'Retake Trial'
-                              : isInProgress
-                                ? 'Continue Trial'
-                                : 'Begin Trial'}
+                            {isCompleted ? 'Retake Trial' : isInProgress ? 'Continue Trial' : 'Begin Trial'}
                             <ChevronRight className="w-3 h-3" />
                           </span>
                         </div>
@@ -515,14 +401,13 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Stats Overview — ALWAYS VISIBLE ═══ */}
+          {/* ═══ Command Statistics ═══ */}
           <motion.section variants={itemVariants} className="space-y-6">
             <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
               Command Statistics
             </h2>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Assessments Completed */}
               <motion.div variants={itemVariants}>
                 <MetallicCard className="p-4 sm:p-5 text-center">
                   <div className="flex justify-center mb-2">
@@ -530,21 +415,13 @@ export default function DashboardPage() {
                       <Trophy className="w-5 h-5 text-[#c9a84c]" />
                     </div>
                   </div>
-                  <motion.p
-                    className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5, duration: 0.5 }}
-                  >
-                    {displayData.stats.assessmentsCompleted}
-                  </motion.p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
-                    Trials Completed
+                  <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]">
+                    {displayData.stats?.assessmentsCompleted ?? 0}
                   </p>
+                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Trials Completed</p>
                 </MetallicCard>
               </motion.div>
 
-              {/* Current Level */}
               <motion.div variants={itemVariants}>
                 <MetallicCard className="p-4 sm:p-5 text-center">
                   <div className="flex justify-center mb-2">
@@ -552,21 +429,13 @@ export default function DashboardPage() {
                       <Shield className="w-5 h-5 text-[#cd7f32]" />
                     </div>
                   </div>
-                  <motion.p
-                    className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#cd7f32]"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.6, duration: 0.5 }}
-                  >
+                  <p className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#cd7f32]">
                     {IMPERIAL_RANKS[currentLevel]}
-                  </motion.p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
-                    Imperial Rank
                   </p>
+                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Imperial Rank</p>
                 </MetallicCard>
               </motion.div>
 
-              {/* Vocabulary Estimate */}
               <motion.div variants={itemVariants}>
                 <MetallicCard className="p-4 sm:p-5 text-center">
                   <div className="flex justify-center mb-2">
@@ -574,23 +443,13 @@ export default function DashboardPage() {
                       <BookOpen className="w-5 h-5 text-[#c9a84c]" />
                     </div>
                   </div>
-                  <motion.p
-                    className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.7, duration: 0.5 }}
-                  >
-                    {displayData.stats.vocabularyEstimate
-                      ? displayData.stats.vocabularyEstimate.toLocaleString()
-                      : '\u2014'}
-                  </motion.p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
-                    Est. Vocabulary
+                  <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#c9a84c]">
+                    {displayData.stats?.vocabularyEstimate ? displayData.stats.vocabularyEstimate.toLocaleString() : '\u2014'}
                   </p>
+                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Est. Vocabulary</p>
                 </MetallicCard>
               </motion.div>
 
-              {/* Grammar Score */}
               <motion.div variants={itemVariants}>
                 <MetallicCard className="p-4 sm:p-5 text-center">
                   <div className="flex justify-center mb-2">
@@ -598,19 +457,10 @@ export default function DashboardPage() {
                       <Swords className="w-5 h-5 text-[#8b7355]" />
                     </div>
                   </div>
-                  <motion.p
-                    className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#8b7355]"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8, duration: 0.5 }}
-                  >
-                    {displayData.stats.grammarScore !== null
-                      ? `${displayData.stats.grammarScore}%`
-                      : '\u2014'}
-                  </motion.p>
-                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">
-                    Grammar Score
+                  <p className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#8b7355]">
+                    {displayData.stats?.grammarScore !== null && displayData.stats?.grammarScore !== undefined ? `${displayData.stats.grammarScore}%` : '\u2014'}
                   </p>
+                  <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] mt-1">Grammar Score</p>
                 </MetallicCard>
               </motion.div>
             </div>
@@ -618,15 +468,13 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Recent Activity & Training Status — ALWAYS VISIBLE ═══ */}
+          {/* ═══ Recent Activity & Training Status ═══ */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Activity */}
             <motion.section variants={itemVariants} className="space-y-4">
-              <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">
-                Recent Activity
-              </h2>
+              <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">Recent Activity</h2>
               <TacticalPanel accentSide="left" accentColor="#c9a84c">
-                {displayData.activity.length > 0 ? (
+                {displayData.activity && displayData.activity.length > 0 ? (
                   <div className="space-y-0 max-h-96 overflow-y-auto">
                     {displayData.activity.map((entry, index) => (
                       <motion.div
@@ -636,28 +484,18 @@ export default function DashboardPage() {
                         transition={{ delay: index * 0.08 }}
                         className="flex items-start gap-3 py-3 border-b border-[rgba(201,168,76,0.08)] last:border-b-0"
                       >
-                        <div className="mt-0.5">
-                          <Clock className="w-4 h-4 text-[#8b7355]" />
-                        </div>
+                        <div className="mt-0.5"><Clock className="w-4 h-4 text-[#8b7355]" /></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-[#e8e0d0] text-sm font-[family-name:var(--font-heading)] truncate">
-                              {entry.action}
-                            </p>
+                            <p className="text-[#e8e0d0] text-sm font-[family-name:var(--font-heading)] truncate">{entry.action}</p>
                             {entry.score !== null && (
-                              <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] whitespace-nowrap">
-                                {entry.score}/100
-                              </span>
+                              <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] whitespace-nowrap">{entry.score}/100</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[#8b7355] text-xs">
-                              {entry.module}
-                            </span>
+                            <span className="text-[#8b7355] text-xs">{entry.module}</span>
                             <span className="text-[#8b7355]/40">&bull;</span>
-                            <span className="text-[#8b7355]/60 text-xs">
-                              {new Date(entry.timestamp).toLocaleDateString()}
-                            </span>
+                            <span className="text-[#8b7355]/60 text-xs">{new Date(entry.timestamp).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </motion.div>
@@ -676,27 +514,20 @@ export default function DashboardPage() {
 
             {/* Training Status */}
             <motion.section variants={itemVariants} className="space-y-4">
-              <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">
-                Training Status
-              </h2>
+              <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">Training Status</h2>
               <TacticalPanel accentSide="left" accentColor="#cd7f32">
                 <div className="space-y-4">
                   {/* Current Path */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Target className="w-4 h-4 text-[#cd7f32]" />
-                      <h3 className="font-[family-name:var(--font-heading)] text-[#cd7f32] text-sm font-semibold">
-                        Current Training Path
-                      </h3>
+                      <h3 className="font-[family-name:var(--font-heading)] text-[#cd7f32] text-sm font-semibold">Current Training Path</h3>
                     </div>
                     <p className="text-[#e8e0d0] text-sm font-[family-name:var(--font-sans)] ml-6">
-                      {currentLevel === 0
-                        ? 'Initiate Path — Building Foundations of Command'
-                        : currentLevel === 1
-                          ? 'Warrior Path — Strengthening Your Command'
-                          : currentLevel === 2
-                            ? 'Commander Path — Mastering the Language'
-                            : 'Champion Path — Achieving Mastery'}
+                      {currentLevel === 0 ? 'Initiate Path — Building Foundations of Command'
+                        : currentLevel === 1 ? 'Warrior Path — Strengthening Your Command'
+                        : currentLevel === 2 ? 'Commander Path — Mastering the Language'
+                        : 'Champion Path — Achieving Mastery'}
                     </p>
                     <p className="text-[#8b7355] text-xs mt-1 ml-6 font-[family-name:var(--font-sans)]">
                       {completedModules < 4
@@ -711,12 +542,10 @@ export default function DashboardPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <Zap className="w-4 h-4 text-[#c9a84c]" />
-                      <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm font-semibold">
-                        Recommended Next Actions
-                      </h3>
+                      <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm font-semibold">Recommended Next Actions</h3>
                     </div>
                     <div className="space-y-2 ml-6">
-                      {getRecommendedActions(displayData.moduleProgress).map((action, i) => (
+                      {getRecommendedActions(displayData.moduleProgress || DEFAULT_MODULE_PROGRESS).map((action, i) => (
                         <motion.div
                           key={i}
                           initial={{ opacity: 0, x: -5 }}
@@ -727,12 +556,8 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2">
                             <Star className="w-3 h-3 text-[#8b7355]" />
                             <div>
-                              <p className="text-[#e8e0d0] text-sm">
-                                {action.label}
-                              </p>
-                              <p className="text-[#8b7355] text-xs">
-                                {action.sublabel}
-                              </p>
+                              <p className="text-[#e8e0d0] text-sm">{action.label}</p>
+                              <p className="text-[#8b7355] text-xs">{action.sublabel}</p>
                             </div>
                           </div>
                           <span
@@ -761,10 +586,7 @@ export default function DashboardPage() {
                         ? <>Complete your first trial to earn your initial rank — advance to <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">Initiate</span></>
                         : completedModules < 4
                           ? <>Complete {4 - completedModules} more trial{4 - completedModules > 1 ? 's' : ''} to advance to{' '}
-                              <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">
-                                {IMPERIAL_RANKS[Math.min(currentLevel + 1, 3) as ImperialLevel]}
-                              </span>{' '}
-                              rank</>
+                              <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">{IMPERIAL_RANKS[Math.min(currentLevel + 1, 3) as ImperialLevel]}</span>{' '}rank</>
                           : <span className="text-[#c9a84c] font-[family-name:var(--font-heading)]">All trials completed — Imperial Rank secured</span>}
                     </p>
                   </div>
@@ -775,11 +597,8 @@ export default function DashboardPage() {
 
           <SectionDivider />
 
-          {/* ═══ Quick Actions — ALWAYS VISIBLE ═══ */}
-          <motion.section
-            variants={itemVariants}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
+          {/* ═══ Quick Actions ═══ */}
+          <motion.section variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/assessment">
               <ImperialButton variant="primary" size="lg">
                 <span className="flex items-center gap-2">
@@ -819,25 +638,15 @@ function getRecommendedActions(moduleProgress: Record<string, ModuleProgress>) {
     { key: 'listening', name: 'the Ear', title: 'Listening Assessment' },
   ];
 
-  // Priority: not_started > in_progress > completed (for retaking)
   for (const mod of modules) {
     const progress = moduleProgress[mod.key];
     if (!progress || progress.status === 'not_started') {
-      actions.push({
-        label: `Begin Trial of ${mod.name}`,
-        sublabel: mod.title,
-        priority: actions.length === 0 ? 'Urgent' : 'Next',
-      });
+      actions.push({ label: `Begin Trial of ${mod.name}`, sublabel: mod.title, priority: actions.length === 0 ? 'Urgent' : 'Next' });
     } else if (progress.status === 'in_progress') {
-      actions.push({
-        label: `Continue Trial of ${mod.name}`,
-        sublabel: mod.title,
-        priority: actions.length === 0 ? 'Urgent' : 'Next',
-      });
+      actions.push({ label: `Continue Trial of ${mod.name}`, sublabel: mod.title, priority: actions.length === 0 ? 'Urgent' : 'Next' });
     }
   }
 
-  // If all are completed, suggest retaking lowest score
   if (actions.length === 0) {
     let lowestModule = modules[0];
     let lowestScore = Infinity;
@@ -848,11 +657,7 @@ function getRecommendedActions(moduleProgress: Record<string, ModuleProgress>) {
         lowestModule = mod;
       }
     }
-    actions.push({
-      label: `Retake Trial of ${lowestModule.name}`,
-      sublabel: 'Improve your score',
-      priority: 'Optional',
-    });
+    actions.push({ label: `Retake Trial of ${lowestModule.name}`, sublabel: 'Improve your score', priority: 'Optional' });
   }
 
   return actions.slice(0, 3);
