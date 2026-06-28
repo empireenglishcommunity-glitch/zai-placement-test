@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
+import { sendEmail, verificationEmail, getAppUrl } from '@/lib/email';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,11 +32,18 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await hashPassword(password);
 
+    // Generate email verification token (expires in 24 hours)
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
     const user = await db.user.create({
       data: {
         email,
         passwordHash,
         displayName: displayName || email.split('@')[0],
+        emailVerified: false,
+        verifyToken,
+        verifyTokenExpiry,
       },
     });
 
@@ -46,9 +55,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Send verification email (non-blocking — don't fail registration if email fails)
+    const verifyUrl = `${getAppUrl()}/api/auth/verify-email?token=${verifyToken}`;
+    sendEmail({
+      to: email,
+      subject: 'MACAL EMPIRE — Verify Your Email',
+      html: verificationEmail(verifyUrl),
+    }).catch((err) => console.error('[REGISTER] Verification email failed:', err));
+
     return NextResponse.json({
       success: true,
-      message: 'Account created. You may now enter the Empire.',
+      message: 'Account created. A verification email has been sent.',
     });
   } catch (error) {
     console.error('Registration error:', error);

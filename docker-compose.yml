@@ -21,6 +21,8 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-jSyzmjmSOyj7ibxlkEqGOVE5fEE7FEH7yGPYcNFZfBg=}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-https://assessment.empireenglish.online}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - FROM_EMAIL=${FROM_EMAIL:-Empire English <onboarding@resend.dev>}
     volumes:
       - assessment-data:/app/db
     mem_limit: 512m

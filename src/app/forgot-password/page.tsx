@@ -18,13 +18,26 @@ export default function ForgotPasswordPage() {
     setError('');
     setIsLoading(true);
 
-    // Simulate a brief delay for UX
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-    // In production, this would send a password reset email.
-    // For MVP, we just show a message.
-    setIsSubmitted(true);
-    setIsLoading(false);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      setIsSubmitted(true);
+    } catch {
+      setError('Network error. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

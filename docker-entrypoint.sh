@@ -18,6 +18,11 @@ CREATE TABLE IF NOT EXISTS "users" (
     "displayName" TEXT,
     "avatarUrl" TEXT,
     "isAdmin" INTEGER NOT NULL DEFAULT 0,
+    "emailVerified" INTEGER NOT NULL DEFAULT 0,
+    "verifyToken" TEXT,
+    "verifyTokenExpiry" DATETIME,
+    "resetToken" TEXT,
+    "resetTokenExpiry" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
