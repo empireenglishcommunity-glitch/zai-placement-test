@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -229,6 +230,32 @@ export default function AssessmentPage() {
   const { isLoading, isAuthenticated } = useAuthGuard();
   const { termsAccepted, showTermsGate, acceptTerms } = useTermsGuard();
 
+  // Fetch real module progress from dashboard API
+  const [moduleStatus, setModuleStatus] = useState<Record<string, 'available' | 'completed'>>({
+    speaking: 'available',
+    listening: 'available',
+    vocabulary: 'available',
+    grammar: 'available',
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch('/api/dashboard', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.moduleProgress) {
+          const mp = data.moduleProgress;
+          setModuleStatus({
+            speaking: mp.speaking?.status === 'completed' ? 'completed' : 'available',
+            listening: mp.listening?.status === 'completed' ? 'completed' : 'available',
+            vocabulary: mp.vocabulary?.status === 'completed' ? 'completed' : 'available',
+            grammar: mp.grammar?.status === 'completed' ? 'completed' : 'available',
+          });
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
+
   // Show loading while checking auth
   if (isLoading) {
     return (
@@ -374,7 +401,7 @@ export default function AssessmentPage() {
             className="grid grid-cols-1 md:grid-cols-2 gap-8"
           >
             {trialCards.map((card, i) => (
-              <TrialCard key={card.module} data={card} index={i} />
+              <TrialCard key={card.module} data={{ ...card, status: moduleStatus[card.module] || 'available' }} index={i} />
             ))}
           </motion.div>
         </div>

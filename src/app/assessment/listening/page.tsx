@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRetakeCooldown } from '@/hooks/useRetakeCooldown';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
@@ -154,7 +155,8 @@ const ttsRates: Record<ListeningSpeed, number> = { slow: 0.6, natural: 0.9, fast
 // ─── Main Component ────────────────────────────────────────
 
 export default function ListeningAssessmentPage() {
-  const { data: authSession } = useSession();
+  const { data: authSession, status: authStatus } = useSession();
+  const cooldown = useRetakeCooldown('listening');
   const [phase, setPhase] = useState<Phase>('intro');
   const [currentSpeedIndex, setCurrentSpeedIndex] = useState(0);
   const [passages, setPassages] = useState<Record<ListeningSpeed, PassageContent | null>>({
@@ -285,6 +287,7 @@ export default function ListeningAssessmentPage() {
       setAnswers((prev) => ({ ...prev, [speeds[currentSpeedIndex + 1]]: [] }));
     } else {
       setPhase('results');
+      cooldown.markCompleted();
     }
   }, [currentPassage, currentAnswers, currentSpeed, currentSpeedIndex]);
 

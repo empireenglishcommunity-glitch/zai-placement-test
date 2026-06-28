@@ -145,7 +145,7 @@ export default function VocabularyAssessmentPage() {
   // ─── Helper: Get User ID ────────────────────────────────
 
   // ─── Get real user from next-auth ─────────────────────
-  const { data: authSession } = useSession();
+  const { data: authSession, status: authStatus } = useSession();
   const realUserId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
 
   // ─── Helper: Get User ID ────────────────────────────────

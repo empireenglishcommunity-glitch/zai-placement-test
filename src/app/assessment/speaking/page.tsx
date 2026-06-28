@@ -12,6 +12,7 @@ import {
   GlowingBorder, ProgressBar, SectionDivider, ImperialRankBadge,
 } from '@/components/empire';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useRetakeCooldown } from '@/hooks/useRetakeCooldown';
 import { IMPERIAL_RANKS } from '@/lib/types';
 import type { ImperialLevel } from '@/lib/types';
 import { SPEAKING_LEVELS, SPEAKING_CONFIG, MODULE_INFO } from '@/lib/constants';
@@ -229,6 +230,7 @@ export default function SpeakingAssessmentPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const speech = useSpeechRecognition({ maxDuration: 90 });
+  const cooldown = useRetakeCooldown('speaking');
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Countdown Timer ───────────────────────────────────
@@ -343,6 +345,7 @@ export default function SpeakingAssessmentPage() {
         setHasListenedShadow(false);
       } else {
         setPhase('results');
+        cooldown.markCompleted();
       }
     }
   }, [phase, currentPartIndex, speech]);
@@ -471,12 +474,19 @@ export default function SpeakingAssessmentPage() {
                           <p className="text-[#8b7355] text-sm">Listen then repeat. Your version compared to original.</p>
                         </MetallicCard>
                       </div>
-                      <div className="flex items-center justify-center gap-2 text-[#8b7355] text-sm mt-4">
-                        <Mic className="w-4 h-4" /><span>Microphone access required • Works in Chrome, Edge, Safari</span>
+                      <div className="flex items-center justify-center gap-2 text-[#8b7355] text-xs sm:text-sm mt-4 px-4 text-center">
+                        <Mic className="w-4 h-4 shrink-0" /><span>Microphone required • Chrome, Edge, or Safari • Allow mic when prompted</span>
                       </div>
-                      <ImperialButton variant="primary" size="lg" onClick={() => setPhase('read_aloud')}>
+                      {cooldown.isOnCooldown ? (
+                        <div className="text-center mt-4">
+                          <p className="text-[#cd7f32] text-sm font-[family-name:var(--font-heading)]">Retake available in {cooldown.remainingFormatted}</p>
+                          <p className="text-[#8b7355] text-xs mt-1">Please wait before retaking this trial.</p>
+                        </div>
+                      ) : (
+                        <ImperialButton variant="primary" size="lg" onClick={() => setPhase('read_aloud')}>
                         Begin the Trial <ChevronRight className="w-5 h-5 ml-2 inline" />
                       </ImperialButton>
+                      )}
                     </div>
                   </MetallicCard>
                 </GlowingBorder>

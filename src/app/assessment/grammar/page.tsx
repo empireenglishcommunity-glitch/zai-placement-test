@@ -131,7 +131,9 @@ export default function GrammarAssessmentPage() {
   const [topicScores, setTopicScores] = useState<Record<string, TopicScore>>({});
 
   // Get userId from session (REAL database ID)
-  const { data: authSession } = useSession();
+  const { data: authSession, status: authStatus } = useSession();
+  // Auth guard: redirect if not logged in
+  useEffect(() => { if (authSession === null) router.push('/login'); }, [authSession, router]);
   const getUserId = useCallback((): string => {
     const sessionUserId = (authSession?.user as Record<string, unknown>)?.id as string;
     if (sessionUserId) return sessionUserId;

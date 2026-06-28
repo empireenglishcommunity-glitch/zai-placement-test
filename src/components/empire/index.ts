@@ -21,3 +21,6 @@ export { EmpireWatermark, InlineWatermark } from './EmpireWatermark';
 export { ContentProtection, useContentProtection } from './ContentProtection';
 export { LegalNotice } from './LegalNotice';
 export { FounderSection } from './FounderSection';
+
+
+export { AuthRequired } from './AuthRequired';

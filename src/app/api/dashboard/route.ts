@@ -165,10 +165,36 @@ export async function GET(req: NextRequest) {
       ? Math.round(latestCompleted.voEstimatedSize)
       : null;
 
-    // Determine current rank from latest completed assessment
+    // Calculate rank from completed module levels (majority rule + speaking tiebreaker)
     let computedLevel = 0;
-    if (latestCompleted?.assignedLevel !== null && latestCompleted?.assignedLevel !== undefined) {
-      computedLevel = latestCompleted.assignedLevel;
+    const moduleLevels = Object.values(moduleProgress)
+      .filter(m => m.level !== null && m.level !== undefined)
+      .map(m => m.level as number);
+
+    if (moduleLevels.length > 0) {
+      // Count frequency of each level
+      const levelCounts: Record<number, number> = {};
+      for (const lvl of moduleLevels) {
+        levelCounts[lvl] = (levelCounts[lvl] || 0) + 1;
+      }
+
+      // Find majority level
+      let maxCount = 0;
+      let isTie = false;
+      for (const [level, count] of Object.entries(levelCounts)) {
+        if (count > maxCount) {
+          maxCount = count;
+          computedLevel = parseInt(level);
+          isTie = false;
+        } else if (count === maxCount) {
+          isTie = true;
+        }
+      }
+
+      // Tiebreaker: speaking level wins
+      if (isTie && moduleProgress.speaking.level !== null) {
+        computedLevel = moduleProgress.speaking.level;
+      }
     }
 
     const finalLevel = Math.max(currentLevel, computedLevel);
