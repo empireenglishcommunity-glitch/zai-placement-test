@@ -33,6 +33,7 @@ RUN npm run build
 
 # Stage 3: Production runner
 FROM node:20-alpine AS runner
+RUN apk add --no-cache sqlite
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -49,10 +50,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma files for runtime AND CLI for db initialization
+# Copy Prisma client for runtime (NOT CLI - we use sqlite3 directly)
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/prisma ./prisma
 
 # Copy entrypoint script

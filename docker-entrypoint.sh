@@ -1,15 +1,177 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════
 # EMPIRE ENGLISH — Docker Entrypoint
-# Ensures database tables exist before starting the app
+# Creates SQLite database tables directly (no Prisma CLI needed)
 # ═══════════════════════════════════════════════════════════
 
 echo "🏛️ Empire Assessment — Starting..."
 
-# Initialize SQLite database tables using the full prisma package (not .bin symlink)
-echo "📦 Initializing database..."
-node ./node_modules/prisma/build/index.js db push --schema=./prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 || echo "⚠️ Prisma db push had issues, continuing anyway"
-echo "✅ Database ready"
+DB_PATH="/app/db/assessment.db"
+
+if [ ! -f "$DB_PATH" ] || [ ! -s "$DB_PATH" ]; then
+  echo "📦 Creating database tables..."
+  sqlite3 "$DB_PATH" << 'SQL'
+CREATE TABLE IF NOT EXISTS "users" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "email" TEXT NOT NULL,
+    "passwordHash" TEXT,
+    "displayName" TEXT,
+    "avatarUrl" TEXT,
+    "isAdmin" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "users_email_key" ON "users"("email");
+
+CREATE TABLE IF NOT EXISTS "profiles" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "currentLevel" INTEGER NOT NULL DEFAULT 0,
+    "assessmentCount" INTEGER NOT NULL DEFAULT 0,
+    "streak" INTEGER NOT NULL DEFAULT 0,
+    "termsAccepted" INTEGER NOT NULL DEFAULT 0,
+    "termsAcceptedAt" DATETIME,
+    "lastActiveAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "profiles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "profiles_userId_key" ON "profiles"("userId");
+
+CREATE TABLE IF NOT EXISTS "assessments" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'not_started',
+    "currentModule" TEXT,
+    "startedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" DATETIME,
+    "spPronunciation" REAL, "spFluency" REAL, "spWordsPerMinute" REAL,
+    "spPhonemeAcc" REAL, "spGrammarAcc" REAL, "spVocabRange" REAL,
+    "spConfidence" REAL, "spRhythmMatch" REAL, "spOverall" REAL, "spLevel" INTEGER,
+    "liLiteral" REAL, "liInference" REAL, "liDetail" REAL, "liOverall" REAL, "liLevel" INTEGER,
+    "voBand1" REAL, "voBand2" REAL, "voBand3" REAL, "voBand4" REAL, "voBand5" REAL,
+    "voEstimatedSize" REAL, "voOverall" REAL, "voLevel" INTEGER,
+    "grPercentage" REAL, "grLevel" INTEGER,
+    "assignedLevel" INTEGER, "flagged" INTEGER NOT NULL DEFAULT 0, "flagReason" TEXT,
+    CONSTRAINT "assessments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "assessments_userId_idx" ON "assessments"("userId");
+CREATE INDEX IF NOT EXISTS "assessments_status_idx" ON "assessments"("status");
+
+CREATE TABLE IF NOT EXISTS "recordings" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "assessmentId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "module" TEXT NOT NULL,
+    "part" TEXT,
+    "audioUrl" TEXT NOT NULL,
+    "duration" REAL,
+    "transcript" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "recordings_assessmentId_fkey" FOREIGN KEY ("assessmentId") REFERENCES "assessments" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "recordings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "recordings_assessmentId_idx" ON "recordings"("assessmentId");
+
+CREATE TABLE IF NOT EXISTS "answers" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "assessmentId" TEXT NOT NULL,
+    "module" TEXT NOT NULL,
+    "questionId" TEXT NOT NULL,
+    "selectedAnswer" INTEGER,
+    "isCorrect" INTEGER,
+    "timeTaken" INTEGER,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "answers_assessmentId_fkey" FOREIGN KEY ("assessmentId") REFERENCES "assessments" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "answers_assessmentId_idx" ON "answers"("assessmentId");
+CREATE INDEX IF NOT EXISTS "answers_module_idx" ON "answers"("module");
+
+CREATE TABLE IF NOT EXISTS "questions" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "module" TEXT NOT NULL,
+    "type" TEXT,
+    "topic" TEXT,
+    "questionText" TEXT NOT NULL,
+    "options" TEXT NOT NULL,
+    "correctAnswer" INTEGER NOT NULL,
+    "difficulty" INTEGER NOT NULL DEFAULT 1,
+    "isActive" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "questions_module_idx" ON "questions"("module");
+CREATE INDEX IF NOT EXISTS "questions_topic_idx" ON "questions"("topic");
+CREATE INDEX IF NOT EXISTS "questions_isActive_idx" ON "questions"("isActive");
+
+CREATE TABLE IF NOT EXISTS "review_flags" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "assessmentId" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
+    "reviewedBy" TEXT,
+    "reviewedAt" DATETIME,
+    "resolved" INTEGER NOT NULL DEFAULT 0,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "review_flags_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "review_flags_resolved_idx" ON "review_flags"("resolved");
+CREATE INDEX IF NOT EXISTS "review_flags_userId_idx" ON "review_flags"("userId");
+
+CREATE TABLE IF NOT EXISTS "admin_notes" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "adminId" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "admin_notes_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "admin_notes_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "admin_notes_targetUserId_idx" ON "admin_notes"("targetUserId");
+
+CREATE TABLE IF NOT EXISTS "assessment_sessions" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "module" TEXT NOT NULL,
+    "attemptNumber" INTEGER NOT NULL DEFAULT 1,
+    "questionSet" TEXT NOT NULL,
+    "optionMapping" TEXT NOT NULL,
+    "seed" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "startedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" DATETIME
+);
+CREATE INDEX IF NOT EXISTS "assessment_sessions_userId_module_idx" ON "assessment_sessions"("userId", "module");
+CREATE INDEX IF NOT EXISTS "assessment_sessions_status_idx" ON "assessment_sessions"("status");
+
+CREATE TABLE IF NOT EXISTS "question_exposures" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "questionId" TEXT NOT NULL,
+    "module" TEXT NOT NULL,
+    "attemptNum" INTEGER NOT NULL,
+    "shownAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "question_exposures_userId_questionId_attemptNum_key" ON "question_exposures"("userId", "questionId", "attemptNum");
+CREATE INDEX IF NOT EXISTS "question_exposures_userId_module_idx" ON "question_exposures"("userId", "module");
+
+CREATE TABLE IF NOT EXISTS "ownership_records" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "eventType" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "metadata" TEXT,
+    "userId" TEXT,
+    "createdBy" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "ownership_records_eventType_idx" ON "ownership_records"("eventType");
+CREATE INDEX IF NOT EXISTS "ownership_records_createdAt_idx" ON "ownership_records"("createdAt");
+SQL
+  echo "✅ Database tables created"
+else
+  echo "✅ Database exists"
+fi
 
 # Start the server
 echo "🚀 Starting server on port ${PORT:-3000}..."
