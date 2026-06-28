@@ -2,21 +2,31 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Shield, Swords, Home, Scroll, Crown } from 'lucide-react';
+import { Menu, X, Shield, Swords, Home, Scroll, Crown, LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { ImperialButton } from './ImperialButton';
 
-const navLinks = [
+// Links visible to everyone
+const publicLinks = [
   { href: '/', label: 'Hall', icon: Home },
-  { href: '/dashboard', label: 'Dashboard', icon: Shield },
   { href: '/assessment', label: 'Trials', icon: Swords },
   { href: '/terms', label: 'Terms', icon: Scroll },
   { href: '/ip-ownership', label: 'IP', icon: Crown },
 ];
 
+// Links only visible when logged in
+const authLinks = [
+  { href: '/dashboard', label: 'Dashboard', icon: Shield },
+];
+
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === 'authenticated' && !!session;
+
+  const navLinks = isLoggedIn ? [...publicLinks.slice(0, 1), ...authLinks, ...publicLinks.slice(1)] : publicLinks;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[rgba(10,10,10,0.9)] backdrop-blur-md border-b border-[rgba(201,168,76,0.15)]">
@@ -51,14 +61,30 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Buttons — changes based on login state */}
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/login">
-              <ImperialButton variant="ghost" size="sm">Enter</ImperialButton>
-            </Link>
-            <Link href="/register">
-              <ImperialButton variant="primary" size="sm">Join the Empire</ImperialButton>
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">
+                  {session.user?.name || session.user?.email?.split('@')[0] || 'Warrior'}
+                </span>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="flex items-center gap-1.5 text-[#8b7355] hover:text-[#e74c3c] transition-colors font-[family-name:var(--font-heading)] text-sm"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <ImperialButton variant="ghost" size="sm">Enter</ImperialButton>
+                </Link>
+                <Link href="/register">
+                  <ImperialButton variant="primary" size="sm">Join the Empire</ImperialButton>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -93,12 +119,24 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="flex gap-3 pt-2">
-                <Link href="/login" className="flex-1" onClick={() => setIsOpen(false)}>
-                  <ImperialButton variant="ghost" size="sm" className="w-full">Enter</ImperialButton>
-                </Link>
-                <Link href="/register" className="flex-1" onClick={() => setIsOpen(false)}>
-                  <ImperialButton variant="primary" size="sm" className="w-full">Join</ImperialButton>
-                </Link>
+                {isLoggedIn ? (
+                  <button
+                    onClick={() => { signOut({ callbackUrl: '/' }); setIsOpen(false); }}
+                    className="flex items-center gap-2 text-[#8b7355] hover:text-[#e74c3c] transition-colors font-[family-name:var(--font-heading)]"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                ) : (
+                  <>
+                    <Link href="/login" className="flex-1" onClick={() => setIsOpen(false)}>
+                      <ImperialButton variant="ghost" size="sm" className="w-full">Enter</ImperialButton>
+                    </Link>
+                    <Link href="/register" className="flex-1" onClick={() => setIsOpen(false)}>
+                      <ImperialButton variant="primary" size="sm" className="w-full">Join</ImperialButton>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
