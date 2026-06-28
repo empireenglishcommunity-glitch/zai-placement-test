@@ -431,12 +431,12 @@ export default function SpeakingAssessmentPage() {
           )}
 
           {/* Browser support warning */}
-          {!speech.isSupported && phase !== 'intro' && (
+          {!speech.isSupported && (
             <div className="mb-6 p-4 rounded-lg border border-[#e74c3c] bg-[rgba(231,76,60,0.1)]">
               <div className="flex items-center gap-2 text-[#e74c3c]">
                 <AlertCircle className="w-5 h-5" />
                 <p className="text-sm font-[family-name:var(--font-heading)]">
-                  Speech recognition not supported. Please use Chrome, Edge, or Safari.
+                  Your browser does not support speech recognition. Please open this page in <strong>Google Chrome</strong>, Microsoft Edge, or Safari to take the Speaking Trial.
                 </p>
               </div>
             </div>
