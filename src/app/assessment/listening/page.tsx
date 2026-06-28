@@ -376,10 +376,14 @@ export default function ListeningAssessmentPage() {
                       <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c]">
                         The Perception Trial
                       </h2>
-                      <p className="text-[#c0c0c0] leading-relaxed max-w-2xl mx-auto">
+                      <p className="font-arabic text-[#8b7355] text-base mt-2" dir="rtl">اختبار الاستماع</p>
+                      <p className="text-[#c0c0c0] leading-relaxed max-w-2xl mx-auto mt-4">
                         The Empire demands not only a strong voice, but keen ears. Listen to passages
                         at increasing speeds and prove your comprehension. Only those who truly
                         understand the spoken word will ascend.
+                      </p>
+                      <p className="font-arabic text-[#8b7355] text-sm leading-relaxed mt-3 max-w-2xl mx-auto" dir="rtl">
+                        استمع لمقاطع صوتية بثلاث سرعات مختلفة وأجب عن أسئلة الفهم. اختبار يقيس قدرتك على فهم اللغة الإنجليزية المنطوقة.
                       </p>
 
                       <SectionDivider />

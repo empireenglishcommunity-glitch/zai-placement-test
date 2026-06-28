@@ -455,8 +455,12 @@ export default function SpeakingAssessmentPage() {
                     <div className="text-center space-y-6">
                       <div className="text-5xl mb-4">⚔️</div>
                       <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c]">The Oratory Trial</h2>
-                      <p className="text-[#c0c0c0] leading-relaxed max-w-2xl mx-auto">
+                      <p className="font-arabic text-[#8b7355] text-base mt-2" dir="rtl">اختبار التحدث</p>
+                      <p className="text-[#c0c0c0] leading-relaxed max-w-2xl mx-auto mt-4">
                         This trial uses <strong>real speech recognition</strong> to transcribe what you say. Your actual words are evaluated — not a guess. Speak clearly into your microphone.
+                      </p>
+                      <p className="font-arabic text-[#8b7355] text-sm leading-relaxed mt-3 max-w-2xl mx-auto" dir="rtl">
+                        هذا الاختبار يستخدم تقنية التعرف على الكلام الحقيقية. تحدث بوضوح في الميكروفون وسيتم تقييم كلماتك الفعلية.
                       </p>
                       <SectionDivider />
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -464,16 +468,19 @@ export default function SpeakingAssessmentPage() {
                           <div className="text-3xl mb-2">📜</div>
                           <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] font-semibold mb-1">Part A: Read Aloud</h3>
                           <p className="text-[#8b7355] text-sm">Read {readAloudPassages.length} passages. Your words are compared to the text.</p>
+                          <p className="font-arabic text-[#8b7355] text-xs mt-1" dir="rtl">اقرأ بصوت عالٍ</p>
                         </MetallicCard>
                         <MetallicCard hover={false} className="p-4">
                           <div className="text-3xl mb-2">🗣️</div>
                           <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] font-semibold mb-1">Part B: Spontaneous</h3>
                           <p className="text-[#8b7355] text-sm">Speak freely for {SPEAKING_CONFIG.spontaneousDuration}s. Grammar & vocabulary evaluated.</p>
+                          <p className="font-arabic text-[#8b7355] text-xs mt-1" dir="rtl">تحدث بحرية</p>
                         </MetallicCard>
                         <MetallicCard hover={false} className="p-4">
                           <div className="text-3xl mb-2">🔄</div>
                           <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] font-semibold mb-1">Part C: Shadowing</h3>
                           <p className="text-[#8b7355] text-sm">Listen then repeat. Your version compared to original.</p>
+                          <p className="font-arabic text-[#8b7355] text-xs mt-1" dir="rtl">استمع وكرر</p>
                         </MetallicCard>
                       </div>
                       <div className="flex items-center justify-center gap-2 text-[#8b7355] text-xs sm:text-sm mt-4 px-4 text-center">

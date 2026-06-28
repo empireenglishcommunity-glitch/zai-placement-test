@@ -336,9 +336,10 @@ export default function GrammarAssessmentPage() {
             className="text-center mb-10"
           >
             <div className="text-5xl mb-4">⚔️</div>
-            <h1 className="font-[family-name:var(--font-heading)] text-4xl md:text-5xl font-bold text-[#c9a84c] mb-3 tracking-wider">
+            <h1 className="font-[family-name:var(--font-heading)] text-4xl md:text-5xl font-bold text-[#c9a84c] mb-2 tracking-wider">
               Trial of Structure
             </h1>
+            <p className="font-arabic text-[#8b7355] text-base mb-3" dir="rtl">اختبار القواعد</p>
             <div className="flex items-center justify-center gap-3">
               <p className="font-[family-name:var(--font-heading)] text-lg text-[#8b7355] tracking-wide">
                 {MODULE_INFO.grammar.empireTitle}
@@ -360,10 +361,13 @@ export default function GrammarAssessmentPage() {
             <GlowingBorder intensity="medium">
               <MetallicCard hover={false} className="p-6 md:p-8">
                 <div className="text-center">
-                  <p className="font-[family-name:var(--font-sans)] text-[#c0c0c0] text-base md:text-lg leading-relaxed italic mb-4">
+                  <p className="font-[family-name:var(--font-sans)] text-[#c0c0c0] text-base md:text-lg leading-relaxed italic mb-3">
                     &ldquo;The foundation of every great empire rests upon the pillars of structure.
                     Grammar is the architecture of thought — without it, even the mightiest words crumble
                     into chaos. Prove your command of the structural foundations of English.&rdquo;
+                  </p>
+                  <p className="font-arabic text-[#8b7355] text-sm leading-relaxed mb-4" dir="rtl">
+                    25 سؤال عبر 8 مواضيع نحوية. أكمل الجمل، حدد الأخطاء، وحوّل التراكيب. أثبت إتقانك لقواعد اللغة الإنجليزية.
                   </p>
                   <SectionDivider />
                   <div className="mt-4 space-y-2">

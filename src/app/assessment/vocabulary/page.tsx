@@ -501,9 +501,10 @@ export default function VocabularyAssessmentPage() {
               >
                 📖
               </motion.div>
-              <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl lg:text-6xl font-bold text-[#c9a84c] mb-3 tracking-wide">
+              <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl lg:text-6xl font-bold text-[#c9a84c] mb-2 tracking-wide">
                 Trial of Words
               </h1>
+              <p className="font-arabic text-[#8b7355] text-base mb-3" dir="rtl">اختبار المفردات</p>
               <p className="font-[family-name:var(--font-heading)] text-[#cd7f32] text-lg sm:text-xl tracking-widest uppercase">
                 {MODULE_INFO.vocabulary.empireTitle}
               </p>
@@ -522,6 +523,9 @@ export default function VocabularyAssessmentPage() {
                     five frequency bands. From the foundational words that form the bedrock of
                     communication to the elite vocabulary that marks true mastery, each band
                     reveals the true extent of your lexical command.
+                  </p>
+                  <p className="font-arabic text-[#8b7355] text-sm leading-relaxed mb-4" dir="rtl">
+                    هذا الاختبار يقيس حجم مفرداتك عبر خمسة مستويات — من الكلمات الأساسية إلى المفردات المتقدمة. 40 سؤال. اختر المعنى الصحيح لكل كلمة.
                   </p>
                   <p className="text-[#8b7355] text-sm italic font-[family-name:var(--font-sans)]">
                     &ldquo;A warrior without words is a blade without edge. Sharpen your lexicon, and command the battlefield of language.&rdquo;
