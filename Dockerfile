@@ -49,18 +49,19 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma files for runtime
+# Copy Prisma files for runtime AND CLI for db initialization
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --from=builder /app/prisma ./prisma
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-# Create db directory for SQLite
-RUN mkdir -p /app/db && chown nextjs:nodejs /app/db
+# Create db directory for SQLite — writable by nextjs user
+RUN mkdir -p /app/db && chown -R nextjs:nodejs /app/db
 
 USER nextjs
 
