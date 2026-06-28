@@ -161,6 +161,27 @@ CREATE TABLE IF NOT EXISTS "question_exposures" (
 CREATE UNIQUE INDEX IF NOT EXISTS "question_exposures_userId_questionId_attemptNum_key" ON "question_exposures"("userId", "questionId", "attemptNum");
 CREATE INDEX IF NOT EXISTS "question_exposures_userId_module_idx" ON "question_exposures"("userId", "module");
 
+CREATE TABLE IF NOT EXISTS "invite_codes" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "code" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'general',
+    "maxUses" INTEGER NOT NULL DEFAULT 1,
+    "usedCount" INTEGER NOT NULL DEFAULT 0,
+    "usedBy" TEXT,
+    "expiresAt" DATETIME,
+    "isActive" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "note" TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "invite_codes_code_key" ON "invite_codes"("code");
+CREATE INDEX IF NOT EXISTS "invite_codes_isActive_idx" ON "invite_codes"("isActive");
+
+-- Insert default invite codes for the founder
+INSERT OR IGNORE INTO "invite_codes" ("id", "code", "type", "maxUses", "usedCount", "note") VALUES
+  ('default-paid', 'EEC-PAID-2026', 'paid', -1, 0, 'Default code for paid students'),
+  ('default-free', 'EEC-FREE-2026', 'free', -1, 0, 'Default code for free students'),
+  ('default-vip', 'EMPIRE-VIP', 'vip', -1, 0, 'VIP access code');
+
 CREATE TABLE IF NOT EXISTS "ownership_records" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "eventType" TEXT NOT NULL,

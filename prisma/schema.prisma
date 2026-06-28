@@ -239,6 +239,25 @@ model QuestionExposure {
   @@map("question_exposures")
 }
 
+// ─── Invite Codes ────────────────────────────────────────────
+
+model InviteCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  type        String   @default("general") // general, paid, free, vip
+  maxUses     Int      @default(1)  // -1 = unlimited
+  usedCount   Int      @default(0)
+  usedBy      String?  // JSON array of user IDs who used it
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  note        String?  // admin note (e.g., "For Discord batch June 2026")
+
+  @@index([code])
+  @@index([isActive])
+  @@map("invite_codes")
+}
+
 // ─── IP & Ownership Records ──────────────────────────────────
 
 model OwnershipRecord {

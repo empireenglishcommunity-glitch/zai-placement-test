@@ -6,7 +6,7 @@ import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, displayName } = await req.json();
+    const { email, password, displayName, inviteCode } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -15,10 +15,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!inviteCode) {
+      return NextResponse.json(
+        { error: 'Invite code is required. Registration is by invitation only.' },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
         { status: 400 }
+      );
+    }
+
+    // Validate invite code
+    const invite = await db.inviteCode.findUnique({
+      where: { code: inviteCode.toUpperCase().trim() },
+    }).catch(() => null);
+
+    if (!invite || !invite.isActive) {
+      return NextResponse.json(
+        { error: 'Invalid invite code. Contact your instructor for access.' },
+        { status: 403 }
+      );
+    }
+
+    if (invite.expiresAt && new Date() > invite.expiresAt) {
+      return NextResponse.json(
+        { error: 'This invite code has expired. Request a new one.' },
+        { status: 403 }
+      );
+    }
+
+    if (invite.maxUses !== -1 && invite.usedCount >= invite.maxUses) {
+      return NextResponse.json(
+        { error: 'This invite code has reached its usage limit.' },
+        { status: 403 }
       );
     }
 
@@ -62,6 +95,17 @@ export async function POST(req: NextRequest) {
       subject: 'MACAL EMPIRE — Verify Your Email',
       html: verificationEmail(verifyUrl),
     }).catch((err) => console.error('[REGISTER] Verification email failed:', err));
+
+    // Mark invite code as used
+    const usedByList = invite.usedBy ? JSON.parse(invite.usedBy) : [];
+    usedByList.push(user.id);
+    await db.inviteCode.update({
+      where: { id: invite.id },
+      data: {
+        usedCount: invite.usedCount + 1,
+        usedBy: JSON.stringify(usedByList),
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

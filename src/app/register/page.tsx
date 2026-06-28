@@ -15,6 +15,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -44,7 +45,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, displayName }),
+        body: JSON.stringify({ email, password, displayName, inviteCode }),
       });
 
       const data = await res.json();
@@ -150,6 +151,25 @@ export default function RegisterPage() {
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Invite Code */}
+                <div className="space-y-1.5">
+                  <label className="text-[#8b7355] font-[family-name:var(--font-heading)] text-sm">
+                    Invite Code <span className="text-[#e74c3c]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b7355]" />
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                      placeholder="Enter your invite code"
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 bg-[rgba(10,10,10,0.8)] border border-[rgba(201,168,76,0.2)] rounded-md text-[#e8e0d0] placeholder:text-[#8b7355] focus:border-[#c9a84c] focus:ring-1 focus:ring-[#c9a84c] focus:outline-none transition-colors uppercase tracking-wider"
+                    />
+                  </div>
+                  <p className="text-[#8b7355] text-xs italic">Get your code from your instructor</p>
+                </div>
+
                 {/* Display Name */}
                 <div className="space-y-1.5">
                   <label className="text-[#8b7355] font-[family-name:var(--font-heading)] text-sm">
