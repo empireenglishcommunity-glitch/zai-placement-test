@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -250,7 +250,33 @@ export default function ListeningAssessmentPage() {
       questionTypes: currentPassage.questions.map((q) => q.type),
     };
 
-    setResults((prev) => [...prev, sectionResult]);
+    setResults((prev) => {
+      const newResults = [...prev, sectionResult];
+      
+      // If this was the last section, submit scores now (we have all data)
+      if (currentSpeedIndex >= speeds.length - 1) {
+        const finalScore = calculateListeningScore(newResults);
+        const userId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
+        fetch('/api/assessment/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            module: 'listening',
+            userId,
+            answers: [],
+            scores: {
+              literalComprehension: finalScore.literalComprehension,
+              inference: finalScore.inference,
+              overall: finalScore.overallScore,
+              level: finalScore.level,
+            },
+          }),
+        }).catch(() => {});
+      }
+      
+      return newResults;
+    });
 
     if (currentSpeedIndex < speeds.length - 1) {
       setCurrentSpeedIndex((prev) => prev + 1);
@@ -270,28 +296,6 @@ export default function ListeningAssessmentPage() {
 
   // ─── Score ─────────────────────────────────────────────
   const scoreResult = calculateListeningScore(results);
-
-  // ─── Submit scores to dashboard when results shown ─────
-  useEffect(() => {
-    if (phase !== 'results') return;
-    const userId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
-    fetch('/api/assessment/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        module: 'listening',
-        userId,
-        answers: [],
-        scores: {
-          literalComprehension: scoreResult.literalComprehension,
-          inference: scoreResult.inference,
-          overall: scoreResult.overallScore,
-          level: scoreResult.level,
-        },
-      }),
-    }).catch(() => {});
-  }, [phase]);
 
   // ─── Progress ──────────────────────────────────────────
   const getOverallProgress = () => {
