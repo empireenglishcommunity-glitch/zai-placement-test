@@ -67,7 +67,7 @@ export default function RegisterPage() {
         router.push('/login');
       } else {
         // First-time registration → show cinematic welcome
-        router.push('/welcome');
+        router.push('/dashboard');
       }
     } catch {
       setError('An error occurred. The gates are temporarily sealed.');

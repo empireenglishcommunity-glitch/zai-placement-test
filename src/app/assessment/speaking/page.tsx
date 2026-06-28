@@ -363,7 +363,7 @@ export default function SpeakingAssessmentPage() {
     const submit = async () => {
       try {
         const currentUserId = typeof window !== 'undefined'
-          ? (localStorage.getItem('userId') || sessionStorage.getItem('userId') || '')
+          ? ((authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '')
           : '';
         await fetch('/api/assessment/submit', {
           method: 'POST',

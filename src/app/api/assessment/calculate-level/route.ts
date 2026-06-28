@@ -44,4 +44,4 @@ async function handler(req: NextRequest) {
 }
 
 // Apply rate limiting — assessment results are sensitive
-export const POST = withApiProtection({ rateLimit: 'assessment', requireAuth: true })(handler);
+export const POST = withApiProtection({ rateLimit: 'assessment' })(handler);

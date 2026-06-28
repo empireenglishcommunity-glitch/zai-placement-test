@@ -260,8 +260,8 @@ function ResultsContent() {
   const assessmentId = searchParams.get('assessmentId');
   const { data: session } = useSession();
 
-  const [results, setResults] = useState<ResultsData | null>(assessmentId ? null : mockResults);
-  const [loading, setLoading] = useState(!!assessmentId);
+  const [results, setResults] = useState<ResultsData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCeremony, setShowCeremony] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -269,49 +269,70 @@ function ResultsContent() {
   const [emailSending, setEmailSending] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
 
-  // Load results from API when assessmentId is provided
+  // Load results from user's actual assessment data
   useEffect(() => {
-    if (!assessmentId) return;
-
     let cancelled = false;
 
-    fetch('/api/assessment/calculate-level', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        speakingScore: 55,
-        listeningScore: 65,
-        vocabularyScore: 1200,
-        grammarScore: 58,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data.result) {
+    async function loadResults() {
+      try {
+        // Fetch real scores from dashboard API
+        const dashRes = await fetch('/api/dashboard', { credentials: 'include' });
+        if (!dashRes.ok) throw new Error('Not authenticated');
+        
+        const dashData = await dashRes.json();
+        const mp = dashData.moduleProgress || {};
+        
+        // Check if at least one module is completed
+        const hasAnyScore = Object.values(mp).some((m: { score: number | null }) => m.score !== null);
+        
+        if (!hasAnyScore) {
+          if (!cancelled) {
+            setError('No completed trials yet. Complete at least one trial to see results.');
+            setResults(mockResults);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Build scores from real data
+        const speakingScore = mp.speaking?.score ?? 0;
+        const listeningScore = mp.listening?.score ?? 0;
+        const vocabularyScore = dashData.stats?.vocabularyEstimate ?? (mp.vocabulary?.score ? mp.vocabulary.score * 50 : 0);
+        const grammarScore = mp.grammar?.score ?? 0;
+
+        // Calculate level from real scores
+        const calcRes = await fetch('/api/assessment/calculate-level', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ speakingScore, listeningScore, vocabularyScore, grammarScore }),
+        });
+
+        if (!calcRes.ok) throw new Error('Level calculation failed');
+        const calcData = await calcRes.json();
+
+        if (!cancelled) {
           setResults({
-            speakingScore: 55,
-            listeningScore: 65,
-            vocabularyScore: 1200,
-            grammarScore: 58,
-            levelAssignment: data.result,
+            speakingScore,
+            listeningScore,
+            vocabularyScore,
+            grammarScore,
+            levelAssignment: calcData.result,
           });
-        } else {
-          setError(data.error || 'Failed to calculate level');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError('Could not load assessment data. Showing available results.');
           setResults(mockResults);
         }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setError('Could not load assessment data. Showing demo results.');
-        setResults(mockResults);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    }
 
+    loadResults();
     return () => { cancelled = true; };
-  }, [assessmentId]);
+  }, []);
 
   // Trigger ceremony animation after results are loaded
   useEffect(() => {

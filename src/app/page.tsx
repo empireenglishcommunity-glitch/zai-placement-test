@@ -183,7 +183,7 @@ export default function Home() {
             className="text-center mb-12"
           >
             <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl md:text-4xl font-bold text-[#c9a84c] text-glow mb-3">
-              IMPERAL RANKS
+              IMPERIAL RANKS
             </h2>
             <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg italic max-w-xl mx-auto">
               Rise through the ranks. From Recruit to Champion.
