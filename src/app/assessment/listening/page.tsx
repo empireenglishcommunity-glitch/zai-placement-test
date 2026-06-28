@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRetakeCooldown } from '@/hooks/useRetakeCooldown';
+import { useUserId } from '@/hooks/useUserId';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
@@ -156,6 +157,7 @@ const ttsRates: Record<ListeningSpeed, number> = { slow: 0.6, natural: 0.9, fast
 
 export default function ListeningAssessmentPage() {
   const { data: authSession, status: authStatus } = useSession();
+  const { userId: listeningUserId } = useUserId();
   const cooldown = useRetakeCooldown('listening');
   const [phase, setPhase] = useState<Phase>('intro');
   const [currentSpeedIndex, setCurrentSpeedIndex] = useState(0);
@@ -258,7 +260,7 @@ export default function ListeningAssessmentPage() {
       // If this was the last section, submit scores now (we have all data)
       if (currentSpeedIndex >= speeds.length - 1) {
         const finalScore = calculateListeningScore(newResults);
-        const userId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
+        const userId = listeningUserId || '';
         fetch('/api/assessment/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

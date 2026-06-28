@@ -13,6 +13,7 @@ import {
 } from '@/components/empire';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useRetakeCooldown } from '@/hooks/useRetakeCooldown';
+import { useUserId } from '@/hooks/useUserId';
 import { IMPERIAL_RANKS } from '@/lib/types';
 import type { ImperialLevel } from '@/lib/types';
 import { SPEAKING_LEVELS, SPEAKING_CONFIG, MODULE_INFO } from '@/lib/constants';
@@ -231,6 +232,7 @@ export default function SpeakingAssessmentPage() {
 
   const speech = useSpeechRecognition({ maxDuration: 90 });
   const cooldown = useRetakeCooldown('speaking');
+  const { userId: currentUserId, isGuest: isSpeakingGuest } = useUserId();
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Countdown Timer ───────────────────────────────────
@@ -365,8 +367,8 @@ export default function SpeakingAssessmentPage() {
     if (phase !== 'results') return;
     const submit = async () => {
       try {
-        const currentUserId = typeof window !== 'undefined'
-          ? ((authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '')
+        const currentUserId2 = typeof window !== 'undefined'
+          ? (currentUserId || '')
           : '';
         await fetch('/api/assessment/submit', {
           method: 'POST',
@@ -375,7 +377,7 @@ export default function SpeakingAssessmentPage() {
           body: JSON.stringify({
             assessmentId: `speaking-${Date.now()}`,
             module: 'speaking',
-            userId: currentUserId,
+            userId: currentUserId2,
             answers: results.map(r => ({
               questionId: `${r.part}_${r.index}`,
               selectedAnswer: 0,

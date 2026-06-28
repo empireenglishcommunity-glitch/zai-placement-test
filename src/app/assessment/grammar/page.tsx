@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useUserId } from '@/hooks/useUserId';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
@@ -129,29 +130,15 @@ export default function GrammarAssessmentPage() {
   const [percentage, setPercentage] = useState(0);
   const [level, setLevel] = useState<ImperialLevel>(0);
   const [topicScores, setTopicScores] = useState<Record<string, TopicScore>>({});
-
-  // Get userId from session (REAL database ID)
-  const { data: authSession, status: authStatus } = useSession();
+  // Get userId (works for auth + guest)
+  const { userId: currentUserId, isGuest } = useUserId();
+  const { status: authStatus } = useSession();
   // Auth guard: redirect if not logged in AND not guest
   useEffect(() => {
-    if (authStatus === 'loading') return;
-    if (authStatus === 'unauthenticated') {
-      const isGuest = typeof window !== 'undefined' && sessionStorage.getItem('empire-guest-mode') === 'true';
-      if (!isGuest) router.push('/login');
-    }
-  }, [authStatus, router]);
-  const getUserId = useCallback((): string => {
-    const sessionUserId = (authSession?.user as Record<string, unknown>)?.id as string;
-    if (sessionUserId) return sessionUserId;
-    const email = authSession?.user?.email;
-    if (email) return email;
-    if (typeof window === 'undefined') return '';
-    try {
-      return localStorage.getItem('empire-user-id') || '';
-    } catch {
-      return '';
-    }
-  }, [authSession]);
+    if (authStatus === "loading") return;
+    if (authStatus === "unauthenticated" && !isGuest) router.push("/login");
+  }, [authStatus, router, isGuest]);
+  const getUserId = useCallback((): string => currentUserId || "guest", [currentUserId]);
 
   // Fetch session from Dynamic Assessment Engine
   const fetchQuestions = useCallback(async (forceNew = false) => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useUserId } from '@/hooks/useUserId';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Clock, ChevronRight, BookOpen, Trophy, ArrowRight, Sparkles, Shield, Star } from 'lucide-react';
@@ -142,26 +143,9 @@ export default function VocabularyAssessmentPage() {
   const [estimatedVocabSize, setEstimatedVocabSize] = useState(0);
   const [assignedLevel, setAssignedLevel] = useState<ImperialLevel>(0);
 
-  // ─── Helper: Get User ID ────────────────────────────────
-
-  // ─── Get real user from next-auth ─────────────────────
-  const { data: authSession, status: authStatus } = useSession();
-  const realUserId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
-
-  // ─── Helper: Get User ID ────────────────────────────────
-  // Gets the REAL database user ID from next-auth session
-
-  function getUserId(): string {
-    // Use the real session user ID or email
-    if (realUserId) return realUserId;
-    if (typeof window === 'undefined') return '';
-    try {
-      const storedId = localStorage.getItem('empire-user-id') || sessionStorage.getItem('empire-user-id');
-      if (storedId && storedId.length > 10) return storedId;
-    } catch {}
-    return '';
-  }
-
+  // ─── Get User ID (works for auth + guest) ─────────────
+  const { userId: currentUserId, isGuest } = useUserId();
+  function getUserId(): string { return currentUserId || "guest"; }
   // ─── Fetch Active Session on Load ────────────────────────
 
   useEffect(() => {
