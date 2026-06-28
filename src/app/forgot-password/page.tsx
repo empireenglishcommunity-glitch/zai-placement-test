@@ -146,7 +146,7 @@ export default function ForgotPasswordPage() {
                 >
                   <div className="p-4 rounded-md border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.05)]">
                     <p className="font-[family-name:var(--font-sans)] text-[#e8e0d0] text-sm leading-relaxed">
-                      In production, a restoration link would be sent to your imperial email.
+                      A reset link has been sent to your email. Check your inbox (and spam folder).
                       For now, please contact an administrator to reclaim your path.
                     </p>
                   </div>

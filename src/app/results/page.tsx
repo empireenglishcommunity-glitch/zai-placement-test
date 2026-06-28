@@ -288,7 +288,7 @@ function ResultsContent() {
         if (!hasAnyScore) {
           if (!cancelled) {
             setError('No completed trials yet. Complete at least one trial to see results.');
-            setResults(mockResults);
+            setResults(null);
             setLoading(false);
           }
           return;
@@ -322,8 +322,8 @@ function ResultsContent() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError('Could not load assessment data. Showing available results.');
-          setResults(mockResults);
+          setError('No completed trials yet. Complete all 4 trials to see your full results.');
+          setResults(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -415,7 +415,30 @@ function ResultsContent() {
     );
   }
 
-  if (!results) return null;
+  if (!results) {
+    return (
+      <div className="min-h-screen flex flex-col empire-bg">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
+          <MetallicCard className="max-w-md w-full p-8 text-center" hover={false}>
+            <div className="text-4xl mb-4">⚔️</div>
+            <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] mb-2">
+              No Results Yet
+            </h2>
+            <p className="font-arabic text-[#8b7355] text-sm mb-3" dir="rtl">لم تكمل أي اختبار بعد</p>
+            <p className="text-[#8b7355] text-sm mb-6">
+              {error || 'Complete the Four Trials to receive your Imperial Rank and full assessment results.'}
+            </p>
+            <Link href="/assessment">
+              <ImperialButton variant="primary">Go to Trials / اذهب للاختبارات</ImperialButton>
+            </Link>
+          </MetallicCard>
+        </main>
+        <div className="mt-auto"><Footer /></div>
+      </div>
+    );
+  }
 
   const { levelAssignment: assignment } = results;
   const finalColor = getLevelColor(assignment.finalLevel);

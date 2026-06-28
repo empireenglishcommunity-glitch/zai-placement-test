@@ -367,9 +367,9 @@ export default function SpeakingAssessmentPage() {
     if (phase !== 'results') return;
     const submit = async () => {
       try {
-        const currentUserId2 = typeof window !== 'undefined'
-          ? (currentUserId || '')
-          : '';
+        // Skip submit for guests
+        if (!currentUserId || isSpeakingGuest) return;
+        const currentUserId2 = currentUserId || '';
         await fetch('/api/assessment/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -377,7 +377,7 @@ export default function SpeakingAssessmentPage() {
           body: JSON.stringify({
             assessmentId: `speaking-${Date.now()}`,
             module: 'speaking',
-            userId: currentUserId2,
+            userId: currentUserId,
             answers: results.map(r => ({
               questionId: `${r.part}_${r.index}`,
               selectedAnswer: 0,

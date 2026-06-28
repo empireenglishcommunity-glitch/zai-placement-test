@@ -275,7 +275,7 @@ export default function VocabularyAssessmentPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          assessmentId: sessionId ?? 'demo-assessment',
+          assessmentId: sessionId || `vocab-${Date.now()}`,
           module: 'vocabulary',
           userId: getUserId(),
           answers: answers.map(a => ({

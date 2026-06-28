@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRetakeCooldown } from '@/hooks/useRetakeCooldown';
 import { useUserId } from '@/hooks/useUserId';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
@@ -157,9 +158,18 @@ const ttsRates: Record<ListeningSpeed, number> = { slow: 0.6, natural: 0.9, fast
 
 export default function ListeningAssessmentPage() {
   const { data: authSession, status: authStatus } = useSession();
-  const { userId: listeningUserId } = useUserId();
+  const { userId: listeningUserId, isGuest: isListeningGuest } = useUserId();
   const cooldown = useRetakeCooldown('listening');
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>('intro');
+
+  // Auth guard: redirect if not logged in AND not guest
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'unauthenticated' && !isListeningGuest) {
+      router.push('/login');
+    }
+  }, [authStatus, router, isListeningGuest]);
   const [currentSpeedIndex, setCurrentSpeedIndex] = useState(0);
   const [passages, setPassages] = useState<Record<ListeningSpeed, PassageContent | null>>({
     slow: null,
