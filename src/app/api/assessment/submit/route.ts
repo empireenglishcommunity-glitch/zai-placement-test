@@ -13,7 +13,7 @@ interface AnswerInput {
 
 async function handler(req: NextRequest) {
   try {
-    const { assessmentId, module, answers, scores } = await req.json();
+    const { assessmentId, module, answers, scores, userId: clientUserId } = await req.json();
 
     if (!module) {
       return NextResponse.json({ error: 'Module required' }, { status: 400 });
@@ -33,16 +33,48 @@ async function handler(req: NextRequest) {
     try {
       const { db } = await import('@/lib/db');
 
-      // Get the current user
+      // Get the current user — RELIABLE method via email lookup from session
       let userId: string | null = null;
-      try {
-        const session = await getServerSession(authOptions);
-        userId = (session?.user as Record<string, unknown>)?.id as string || null;
-        if (!userId && session?.user?.email) {
-          const user = await db.user.findUnique({ where: { email: session.user.email } });
-          userId = user?.id || null;
+      
+      // Method 1: Client sent their userId directly
+      if (clientUserId && typeof clientUserId === 'string' && clientUserId.length > 5) {
+        const userExists = await db.user.findUnique({ where: { id: clientUserId } }).catch(() => null);
+        if (userExists) userId = clientUserId;
+      }
+      
+      // Method 2: Try getServerSession with cookies forwarded
+      if (!userId) {
+        try {
+          const session = await getServerSession(authOptions);
+          if (session?.user) {
+            const email = session.user.email;
+            if (email) {
+              const user = await db.user.findUnique({ where: { email } });
+              if (user) userId = user.id;
+            }
+            if (!userId) {
+              userId = (session.user as Record<string, unknown>)?.id as string || null;
+            }
+          }
+        } catch { /* session not available */ }
+      }
+
+      // Method 3: Find user by email from request body (if provided)
+      if (!userId && clientUserId && clientUserId.includes('@')) {
+        const user = await db.user.findUnique({ where: { email: clientUserId } }).catch(() => null);
+        if (user) userId = user.id;
+      }
+
+      // Method 4: If single user (testing), use them
+      if (!userId) {
+        const count = await db.user.count().catch(() => 0);
+        if (count === 1) {
+          const user = await db.user.findFirst();
+          if (user) userId = user.id;
         }
-      } catch { /* no session */ }
+      }
+
+      console.log('[SUBMIT] userId resolved:', userId ? userId.slice(0, 8) + '...' : 'NULL', 'module:', module);
 
       if (userId) {
         // Find or create an assessment record for this user

@@ -362,12 +362,17 @@ export default function SpeakingAssessmentPage() {
     if (phase !== 'results') return;
     const submit = async () => {
       try {
+        const currentUserId = typeof window !== 'undefined'
+          ? (localStorage.getItem('userId') || sessionStorage.getItem('userId') || '')
+          : '';
         await fetch('/api/assessment/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             assessmentId: `speaking-${Date.now()}`,
             module: 'speaking',
+            userId: currentUserId,
             answers: results.map(r => ({
               questionId: `${r.part}_${r.index}`,
               selectedAnswer: 0,

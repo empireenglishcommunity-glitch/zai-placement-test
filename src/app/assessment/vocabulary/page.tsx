@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Clock, ChevronRight, BookOpen, Trophy, ArrowRight, Sparkles, Shield, Star } from 'lucide-react';
@@ -143,15 +144,22 @@ export default function VocabularyAssessmentPage() {
 
   // ─── Helper: Get User ID ────────────────────────────────
 
+  // ─── Get real user from next-auth ─────────────────────
+  const { data: authSession } = useSession();
+  const realUserId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
+
+  // ─── Helper: Get User ID ────────────────────────────────
+  // Gets the REAL database user ID from next-auth session
+
   function getUserId(): string {
-    if (typeof window === 'undefined') return 'demo-user';
+    // Use the real session user ID or email
+    if (realUserId) return realUserId;
+    if (typeof window === 'undefined') return '';
     try {
-      const stored = localStorage.getItem('userId') || sessionStorage.getItem('userId');
-      if (stored) return stored;
-      const sessionData = localStorage.getItem('next-auth.session-token') || sessionStorage.getItem('next-auth.session-token');
-      if (sessionData) return `user-${sessionData.slice(0, 8)}`;
+      const storedId = localStorage.getItem('empire-user-id') || sessionStorage.getItem('empire-user-id');
+      if (storedId && storedId.length > 10) return storedId;
     } catch {}
-    return 'demo-user';
+    return '';
   }
 
   // ─── Fetch Active Session on Load ────────────────────────
@@ -276,9 +284,11 @@ export default function VocabularyAssessmentPage() {
       await fetch('/api/assessment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           assessmentId: sessionId ?? 'demo-assessment',
           module: 'vocabulary',
+          userId: getUserId(),
           answers: answers.map(a => ({
             questionId: a.questionId,
             selectedAnswer: a.selectedAnswer,
