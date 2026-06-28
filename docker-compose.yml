@@ -1,0 +1,36 @@
+# ═══════════════════════════════════════════════════════════
+# EMPIRE ENGLISH COMMUNITY — Z.ai Placement Test
+# Docker Compose for Hetzner VPS deployment
+# ═══════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  assessment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: empire-assessment
+    restart: unless-stopped
+    ports:
+      - "3100:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=file:/app/db/assessment.db
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-jSyzmjmSOyj7ibxlkEqGOVE5fEE7FEH7yGPYcNFZfBg=}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://assessment.empireenglish.online}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - assessment-data:/app/db
+    mem_limit: 512m
+    cpus: 0.5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  assessment-data:
+    driver: local

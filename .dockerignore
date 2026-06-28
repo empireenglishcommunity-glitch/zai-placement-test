@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+db/
+download/
+examples/
+.zscripts/
+agent-ctx/
+mini-services/
