@@ -284,8 +284,8 @@ export default function ListeningAssessmentPage() {
         userId,
         answers: [],
         scores: {
-          literalComprehension: scoreResult.details.literalScore,
-          inference: scoreResult.details.inferenceScore,
+          literalComprehension: scoreResult.literalComprehension,
+          inference: scoreResult.inference,
           overall: scoreResult.overallScore,
           level: scoreResult.level,
         },
