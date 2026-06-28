@@ -1,15 +1,17 @@
 # ═══════════════════════════════════════════════════════════
 # EMPIRE ENGLISH COMMUNITY — Netlify Deployment Configuration
+# Z.ai Placement Test — Imperial Assessment System
 # ═══════════════════════════════════════════════════════════
 
 [build]
-  command = "npm run build"
+  command = "bun install && bun run build"
   publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
+  NODE_VERSION = "20"
   NEXT_SERVER_ACTIONS = "true"
 
 # Headers for security and performance

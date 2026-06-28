@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withApiProtection } from '@/lib/api-protection';
+import { analyzeResponseTimes, type AnswerTiming } from '@/services/assessment-engine';
 
 interface AnswerInput {
   questionId: string;
   selectedAnswer: number;
   isCorrect: boolean;
-  timeTaken: number;
+  timeTaken: number; // milliseconds
 }
 
 async function handler(req: NextRequest) {
@@ -14,6 +15,16 @@ async function handler(req: NextRequest) {
 
     if (!assessmentId || !module) {
       return NextResponse.json({ error: 'Assessment ID and module required' }, { status: 400 });
+    }
+
+    // ─── Anti-Cheating: Response Time Analysis ────────────
+    let integrityAnalysis = null;
+    if (answers && answers.length > 0) {
+      const timings: AnswerTiming[] = (answers as AnswerInput[]).map((a) => ({
+        elapsed: a.timeTaken ? a.timeTaken / 1000 : null, // convert ms → seconds
+        correct: a.isCorrect,
+      }));
+      integrityAnalysis = analyzeResponseTimes(timings);
     }
 
     // Try to save to database, but don't fail if DB is unavailable
@@ -36,6 +47,13 @@ async function handler(req: NextRequest) {
 
       // Update assessment scores based on module
       const updateData: Record<string, unknown> = { currentModule: module };
+
+      // Add integrity flags if suspicious
+      if (integrityAnalysis?.suspicious) {
+        updateData.integrityFlags = JSON.stringify(integrityAnalysis.flags);
+        updateData.flagged = true;
+        updateData.flagReason = integrityAnalysis.flags.map((f) => f.message).join('; ');
+      }
 
       if (module === 'vocabulary' && scores) {
         updateData.voBand1 = scores.band1;
@@ -84,7 +102,16 @@ async function handler(req: NextRequest) {
       console.log('DB save failed, continuing:', dbError);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      integrity: integrityAnalysis
+        ? {
+            suspicious: integrityAnalysis.suspicious,
+            averageTime: Math.round(integrityAnalysis.averageTime * 10) / 10,
+            flagCount: integrityAnalysis.flags.length,
+          }
+        : null,
+    });
   } catch (error) {
     console.error('Submit error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
