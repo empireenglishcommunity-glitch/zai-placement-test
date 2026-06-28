@@ -687,14 +687,26 @@ export default function DashboardPage() {
                 </span>
               </ImperialButton>
             </Link>
-            <Link href="/results">
-              <ImperialButton variant="outline" size="lg">
-                <span className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5" />
-                  View Full Results
-                </span>
-              </ImperialButton>
-            </Link>
+            {completedModules === totalModules && (
+              <Link href="/results">
+                <ImperialButton variant="outline" size="lg">
+                  <span className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5" />
+                    View Full Results
+                  </span>
+                </ImperialButton>
+              </Link>
+            )}
+            {completedModules > 0 && completedModules < totalModules && (
+              <div className="text-center">
+                <p className="text-[#8b7355] text-sm font-[family-name:var(--font-sans)]">
+                  Complete all 4 trials to view your final Imperial Rank
+                </p>
+                <p className="text-[#8b7355] text-xs mt-1">
+                  {completedModules}/{totalModules} trials completed
+                </p>
+              </div>
+            )}
           </motion.section>
         </div>
       </main>
