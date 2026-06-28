@@ -10,15 +10,15 @@ import { ImperialButton } from './ImperialButton';
 
 // Links visible to everyone
 const publicLinks = [
-  { href: '/', label: 'Hall', icon: Home },
-  { href: '/assessment', label: 'Trials', icon: Swords },
-  { href: '/terms', label: 'Terms', icon: Scroll },
-  { href: '/ip-ownership', label: 'IP', icon: Crown },
+  { href: '/', label: 'Hall', labelAr: 'الرئيسية', icon: Home },
+  { href: '/assessment', label: 'Trials', labelAr: 'الاختبارات', icon: Swords },
+  { href: '/terms', label: 'Terms', labelAr: 'الشروط', icon: Scroll },
+  { href: '/ip-ownership', label: 'IP', labelAr: 'الملكية', icon: Crown },
 ];
 
 // Links only visible when logged in
 const authLinks = [
-  { href: '/dashboard', label: 'Dashboard', icon: Shield },
+  { href: '/dashboard', label: 'Dashboard', labelAr: 'لوحة التحكم', icon: Shield },
 ];
 
 export function Navbar() {
@@ -61,10 +61,11 @@ export function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="flex items-center gap-1.5 text-[#8b7355] hover:text-[#c9a84c] transition-colors font-[family-name:var(--font-heading)] text-sm tracking-wide"
+                className="flex items-center gap-1.5 text-[#8b7355] hover:text-[#c9a84c] transition-colors font-[family-name:var(--font-heading)] text-sm tracking-wide group"
               >
                 <link.icon className="w-4 h-4" />
-                {link.label}
+                <span>{link.label}</span>
+                <span className="font-arabic text-[10px] text-[#8b7355]/60 group-hover:text-[#c9a84c]/60" dir="rtl">{link.labelAr}</span>
               </Link>
             ))}
           </div>
@@ -130,7 +131,8 @@ export function Navbar() {
                   onClick={() => setIsOpen(false)}
                 >
                   <link.icon className="w-4 h-4" />
-                  {link.label}
+                  <span>{link.label}</span>
+                  <span className="font-arabic text-xs text-[#8b7355]/60 mr-auto" dir="rtl">{link.labelAr}</span>
                 </Link>
               ))}
               <div className="flex gap-3 pt-2">

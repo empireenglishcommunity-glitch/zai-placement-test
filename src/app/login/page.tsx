@@ -78,9 +78,10 @@ export default function LoginPage() {
                     priority
                   />
                 </motion.div>
-                <h1 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-2">
+                <h1 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-1">
                   ENTER THE EMPIRE
                 </h1>
+                <p className="font-arabic text-[#8b7355] text-sm mb-2" dir="rtl">ادخل الإمبراطورية</p>
                 <p className="font-[family-name:var(--font-heading)] text-[8px] sm:text-[10px] tracking-[0.4em] uppercase text-[#8b7355] mb-2">
                   MACAL EMPIRE
                 </p>
@@ -106,7 +107,7 @@ export default function LoginPage() {
                 {/* Email */}
                 <div className="space-y-1.5">
                   <label className="text-[#8b7355] font-[family-name:var(--font-heading)] text-sm">
-                    Imperial Email
+                    Imperial Email / البريد الإلكتروني
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b7355]" />
@@ -152,7 +153,7 @@ export default function LoginPage() {
                     href="/forgot-password"
                     className="text-[#8b7355] hover:text-[#c9a84c] text-sm font-[family-name:var(--font-heading)] transition-colors"
                   >
-                    Forgotten your path?
+                    نسيت كلمة المرور؟ Forgotten your path?
                   </Link>
                 </div>
 
@@ -170,7 +171,7 @@ export default function LoginPage() {
                       Entering...
                     </span>
                   ) : (
-                    'Enter the Empire'
+                    'ادخل / Enter the Empire'
                   )}
                 </ImperialButton>
               </form>
@@ -185,7 +186,7 @@ export default function LoginPage() {
               {/* Register Link */}
               <div className="mt-6 text-center">
                 <p className="text-[#8b7355] text-sm">
-                  Not yet a member?{' '}
+                  لا تملك حساب؟ Not yet a member?{' '}
                   <Link
                     href="/register"
                     className="text-[#c9a84c] hover:text-[#e8d48b] font-[family-name:var(--font-heading)] transition-colors"
@@ -204,7 +205,7 @@ export default function LoginPage() {
                   }}
                   className="text-[#8b7355] hover:text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] transition-colors underline underline-offset-4"
                 >
-                  Continue as Guest (scores will not be saved)
+                  الدخول كضيف (لن يتم حفظ النتائج) — Continue as Guest
                 </button>
               </div>
 

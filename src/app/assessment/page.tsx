@@ -34,6 +34,8 @@ interface TrialCardData {
   requiresMic: boolean;
   requiresAudio: boolean;
   trialDescription: string;
+  arabicName: string;
+  arabicDescription: string;
 }
 
 const trialCards: TrialCardData[] = [
@@ -46,6 +48,8 @@ const trialCards: TrialCardData[] = [
     requiresAudio: false,
     trialDescription:
       'Read aloud passages of increasing difficulty. Respond spontaneously to prompts. Shadow a native speaker\u2019s rhythm and intonation. Your pronunciation, fluency, and confidence will be measured.',
+    arabicName: 'اختبار التحدث',
+    arabicDescription: 'اقرأ بصوت عالٍ، تحدث بعفوية، وكرر ما تسمعه. سيتم قياس نطقك وطلاقتك وثقتك.',
   },
   {
     module: 'listening',
@@ -56,6 +60,8 @@ const trialCards: TrialCardData[] = [
     requiresAudio: true,
     trialDescription:
       'Listen to passages at three speeds — Slow March, Steady Pace, and Battle Speed. Answer questions that test literal comprehension, inference, and detail recognition.',
+    arabicName: 'اختبار الاستماع',
+    arabicDescription: 'استمع لمقاطع بثلاث سرعات وأجب عن أسئلة الفهم والاستنتاج والتفاصيل.',
   },
   {
     module: 'vocabulary',
@@ -66,6 +72,8 @@ const trialCards: TrialCardData[] = [
     requiresAudio: false,
     trialDescription:
       'Face 40 questions across five frequency bands — from Foundation Words to Elite Words. Each correct answer reveals the true breadth of your lexical command.',
+    arabicName: 'اختبار المفردات',
+    arabicDescription: '40 سؤال عبر 5 مستويات من الكلمات. كل إجابة صحيحة تكشف مدى حصيلتك اللغوية.',
   },
   {
     module: 'grammar',
@@ -76,6 +84,8 @@ const trialCards: TrialCardData[] = [
     requiresAudio: false,
     trialDescription:
       'Complete sentences, identify errors, and transform structures across eight grammar topics. Tenses, conditionals, passive voice — master them all.',
+    arabicName: 'اختبار القواعد',
+    arabicDescription: 'أكمل الجمل، حدد الأخطاء، وحوّل التراكيب عبر 8 مواضيع نحوية.',
   },
 ];
 
@@ -156,6 +166,7 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
         <h3 className="font-[family-name:var(--font-heading)] text-xl sm:text-2xl font-bold text-[#e8e0d0] mb-1">
           {info.name}
         </h3>
+        <p className="font-arabic text-[#8b7355] text-sm mb-1" dir="rtl">{data.arabicName}</p>
 
         {/* Empire Title */}
         <span
@@ -166,8 +177,11 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
         </span>
 
         {/* Description */}
-        <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm leading-relaxed mb-4">
+        <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm leading-relaxed mb-2">
           {info.description}
+        </p>
+        <p className="font-arabic text-[#8b7355] text-xs leading-relaxed mb-4" dir="rtl">
+          {data.arabicDescription}
         </p>
 
         {/* Trial Details */}
@@ -346,13 +360,20 @@ export default function AssessmentPage() {
           <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-wider mb-4">
             <span className="gold-shimmer">The Four Trials</span>
           </h1>
-          <h2 className="font-[family-name:var(--font-heading)] text-lg sm:text-xl md:text-2xl text-[#8b7355] tracking-[0.2em] mb-6">
+          <p className="font-arabic text-[#c9a84c] text-lg sm:text-xl mb-4" dir="rtl">الاختبارات الأربعة</p>
+          <h2 className="font-[family-name:var(--font-heading)] text-lg sm:text-xl md:text-2xl text-[#8b7355] tracking-[0.2em] mb-4">
             Prove your worth. Earn your Imperial Rank.
           </h2>
-          <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg md:text-xl italic max-w-2xl mx-auto">
+          <p className="font-arabic text-[#8b7355] text-base mb-6" dir="rtl">
+            أثبت قدرتك. احصل على رتبتك الإمبراطورية.
+          </p>
+          <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg md:text-xl italic max-w-2xl mx-auto mb-4">
             Every recruit must face the Four Trials. Each trial tests a different aspect
             of your command of the English language. Complete all four to earn your
             Imperial Rank and take your place among the Empire.
+          </p>
+          <p className="font-arabic text-[#8b7355] text-sm max-w-2xl mx-auto leading-relaxed" dir="rtl">
+            كل مجند يجب أن يواجه الاختبارات الأربعة. كل اختبار يقيس جانباً مختلفاً من إتقانك للغة الإنجليزية. أكمل الأربعة لتحصل على رتبتك.
           </p>
         </motion.div>
 
@@ -377,11 +398,17 @@ export default function AssessmentPage() {
               aspect of your command of the English language. Complete all four to earn your
               Imperial Rank.&rdquo;
             </p>
+            <p className="font-arabic text-[#8b7355] text-sm mt-3 leading-relaxed" dir="rtl">
+              &ldquo;كل مجند يواجه الاختبارات الأربعة. أكمل الجميع لتحصل على رتبتك.&rdquo;
+            </p>
             <div className="mt-6 flex items-center justify-center gap-3">
               <div className="h-px w-12 bg-gradient-to-r from-transparent to-[rgba(201,168,76,0.4)]" />
-              <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] tracking-widest uppercase">
-                Choose Your Trial
-              </span>
+              <div className="text-center">
+                <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] tracking-widest uppercase block">
+                  Choose Your Trial
+                </span>
+                <span className="font-arabic text-[#8b7355] text-xs block mt-1" dir="rtl">اختر اختبارك</span>
+              </div>
               <div className="h-px w-12 bg-gradient-to-l from-transparent to-[rgba(201,168,76,0.4)]" />
             </div>
           </motion.div>

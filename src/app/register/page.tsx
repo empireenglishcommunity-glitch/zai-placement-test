@@ -112,15 +112,17 @@ export default function RegisterPage() {
                     priority
                   />
                 </motion.div>
-                <h1 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-2">
+                <h1 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-1">
                   SWEAR THE OATH
                 </h1>
+                <p className="font-arabic text-[#8b7355] text-sm mb-2" dir="rtl">إنشاء حساب جديد</p>
                 <p className="font-[family-name:var(--font-heading)] text-[8px] sm:text-[10px] tracking-[0.4em] uppercase text-[#8b7355] mb-2">
                   MACAL EMPIRE
                 </p>
                 <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm italic">
                   Take the oath. Begin your transformation.
                 </p>
+                <p className="font-arabic text-[#8b7355] text-xs mt-1" dir="rtl">ابدأ رحلتك مع الإمبراطورية</p>
               </motion.div>
 
               {/* Oath Text */}
