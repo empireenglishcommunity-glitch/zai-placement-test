@@ -249,19 +249,10 @@ export default function IPOwnershipPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const res = await fetch('/api/ownership/export');
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `MACAL-EMPIRE-IP-Documentation-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Open the documentation in a new tab (HTML format, user can print to PDF)
+      window.open('/api/ownership/export?format=html', '_blank');
     } catch {
-      // Fallback: open a printable HTML version
+      // Fallback
       window.open('/api/ownership/export?format=html', '_blank');
     } finally {
       setExporting(false);
