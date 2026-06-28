@@ -195,6 +195,19 @@ export default function LoginPage() {
                 </p>
               </div>
 
+              {/* Guest Mode */}
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem('empire-guest-mode', 'true');
+                    router.push('/assessment');
+                  }}
+                  className="text-[#8b7355] hover:text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] transition-colors underline underline-offset-4"
+                >
+                  Continue as Guest (scores will not be saved)
+                </button>
+              </div>
+
               {/* Legal Links */}
               <div className="mt-4 flex items-center justify-center gap-3 text-xs">
                 <Link

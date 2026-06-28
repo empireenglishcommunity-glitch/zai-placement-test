@@ -280,7 +280,12 @@ export default function VocabularyAssessmentPage() {
     try {
       setIsSubmitting(true);
 
-      // Submit results to assessment API
+      // Submit results to assessment API (skip for guests)
+      const isGuest = typeof window !== 'undefined' && sessionStorage.getItem('empire-guest-mode') === 'true';
+      if (isGuest || !getUserId()) {
+        // Guest mode — don't save, just show results
+        return;
+      }
       await fetch('/api/assessment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1156,6 +1161,13 @@ export default function VocabularyAssessmentPage() {
                     <ChevronRight className="w-5 h-5" />
                   </ImperialButton>
                 </Link>
+                {typeof window !== 'undefined' && sessionStorage.getItem('empire-guest-mode') === 'true' && (
+                  <Link href="/register">
+                    <ImperialButton variant="outline" size="lg" className="gap-2 border-[#c9a84c]">
+                      <span>Create Account to Save Progress</span>
+                    </ImperialButton>
+                  </Link>
+                )}
                 <ImperialButton
                   variant="outline"
                   size="lg"

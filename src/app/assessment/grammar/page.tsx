@@ -132,8 +132,14 @@ export default function GrammarAssessmentPage() {
 
   // Get userId from session (REAL database ID)
   const { data: authSession, status: authStatus } = useSession();
-  // Auth guard: redirect if not logged in
-  useEffect(() => { if (authSession === null) router.push('/login'); }, [authSession, router]);
+  // Auth guard: redirect if not logged in AND not guest
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'unauthenticated') {
+      const isGuest = typeof window !== 'undefined' && sessionStorage.getItem('empire-guest-mode') === 'true';
+      if (!isGuest) router.push('/login');
+    }
+  }, [authStatus, router]);
   const getUserId = useCallback((): string => {
     const sessionUserId = (authSession?.user as Record<string, unknown>)?.id as string;
     if (sessionUserId) return sessionUserId;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,8 +25,16 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session, status } = useSession();
   const isLoggedIn = status === 'authenticated' && !!session;
+  const [isGuest, setIsGuest] = useState(false);
 
-  const navLinks = isLoggedIn ? [...publicLinks.slice(0, 1), ...authLinks, ...publicLinks.slice(1)] : publicLinks;
+  // Check guest mode on client
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsGuest(sessionStorage.getItem('empire-guest-mode') === 'true');
+    }
+  }, []);
+
+  const navLinks = (isLoggedIn || isGuest) ? [...publicLinks.slice(0, 1), ...(isLoggedIn ? authLinks : []), ...publicLinks.slice(1)] : publicLinks;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[rgba(10,10,10,0.9)] backdrop-blur-md border-b border-[rgba(201,168,76,0.15)]">
@@ -74,6 +82,13 @@ export function Navbar() {
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
+              </>
+            ) : isGuest ? (
+              <>
+                <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">Guest</span>
+                <Link href="/register">
+                  <ImperialButton variant="primary" size="sm">Sign Up to Save</ImperialButton>
+                </Link>
               </>
             ) : (
               <>
