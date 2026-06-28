@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withApiProtection } from '@/lib/api-protection';
 import { analyzeResponseTimes, type AnswerTiming } from '@/services/assessment-engine';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 interface AnswerInput {
   questionId: string;
@@ -13,8 +15,8 @@ async function handler(req: NextRequest) {
   try {
     const { assessmentId, module, answers, scores } = await req.json();
 
-    if (!assessmentId || !module) {
-      return NextResponse.json({ error: 'Assessment ID and module required' }, { status: 400 });
+    if (!module) {
+      return NextResponse.json({ error: 'Module required' }, { status: 400 });
     }
 
     // ─── Anti-Cheating: Response Time Analysis ────────────
@@ -27,77 +29,117 @@ async function handler(req: NextRequest) {
       integrityAnalysis = analyzeResponseTimes(timings);
     }
 
-    // Try to save to database, but don't fail if DB is unavailable
+    // Try to save to database
     try {
       const { db } = await import('@/lib/db');
 
-      // Save individual answers
-      if (answers && answers.length > 0) {
-        await db.answer.createMany({
-          data: (answers as AnswerInput[]).map((a) => ({
-            assessmentId,
-            module,
-            questionId: a.questionId,
-            selectedAnswer: a.selectedAnswer,
-            isCorrect: a.isCorrect,
-            timeTaken: a.timeTaken,
-          })),
-        });
+      // Get the current user
+      let userId: string | null = null;
+      try {
+        const session = await getServerSession(authOptions);
+        userId = (session?.user as Record<string, unknown>)?.id as string || null;
+        if (!userId && session?.user?.email) {
+          const user = await db.user.findUnique({ where: { email: session.user.email } });
+          userId = user?.id || null;
+        }
+      } catch { /* no session */ }
+
+      if (userId) {
+        // Find or create an assessment record for this user
+        let assessment = await db.assessment.findFirst({
+          where: { userId, status: 'in_progress' },
+          orderBy: { startedAt: 'desc' },
+        }).catch(() => null);
+
+        if (!assessment) {
+          // Create a new assessment record
+          assessment = await db.assessment.create({
+            data: {
+              userId,
+              status: 'in_progress',
+              currentModule: module,
+            },
+          }).catch(() => null);
+        }
+
+        if (assessment) {
+          // Build the update data based on module
+          const updateData: Record<string, unknown> = { currentModule: module };
+
+          // Add integrity flags if suspicious
+          if (integrityAnalysis?.suspicious) {
+            updateData.flagged = true;
+            updateData.flagReason = integrityAnalysis.flags.map((f) => f.message).join('; ');
+          }
+
+          if (module === 'vocabulary' && scores) {
+            updateData.voBand1 = scores.band1 ?? null;
+            updateData.voBand2 = scores.band2 ?? null;
+            updateData.voBand3 = scores.band3 ?? null;
+            updateData.voBand4 = scores.band4 ?? null;
+            updateData.voBand5 = scores.band5 ?? null;
+            updateData.voEstimatedSize = scores.estimatedSize ?? null;
+            updateData.voOverall = scores.overall ?? null;
+            updateData.voLevel = scores.level ?? null;
+          }
+
+          if (module === 'grammar' && scores) {
+            updateData.grPercentage = scores.percentage ?? scores.overall ?? null;
+            updateData.grLevel = scores.level ?? null;
+          }
+
+          if (module === 'speaking' && scores) {
+            updateData.spPronunciation = scores.pronunciation ?? null;
+            updateData.spFluency = scores.fluency ?? null;
+            updateData.spWordsPerMinute = scores.wordsPerMinute ?? null;
+            updateData.spPhonemeAcc = scores.phonemeAccuracy ?? null;
+            updateData.spGrammarAcc = scores.grammarAccuracy ?? null;
+            updateData.spVocabRange = scores.vocabularyRange ?? null;
+            updateData.spConfidence = scores.confidence ?? null;
+            updateData.spRhythmMatch = scores.rhythmMatch ?? null;
+            updateData.spOverall = scores.overall ?? null;
+            updateData.spLevel = scores.level ?? null;
+          }
+
+          if (module === 'listening' && scores) {
+            updateData.liLiteral = scores.literalComprehension ?? null;
+            updateData.liInference = scores.inference ?? null;
+            updateData.liOverall = scores.overall ?? null;
+            updateData.liLevel = scores.level ?? null;
+          }
+
+          // Check if all modules are complete
+          const currentAssessment = await db.assessment.findUnique({ where: { id: assessment.id } });
+          const hasVocab = currentAssessment?.voOverall !== null || (module === 'vocabulary' && scores?.overall);
+          const hasGrammar = currentAssessment?.grPercentage !== null || (module === 'grammar' && scores);
+          const hasSpeaking = currentAssessment?.spOverall !== null || (module === 'speaking' && scores?.overall);
+          const hasListening = currentAssessment?.liOverall !== null || (module === 'listening' && scores?.overall);
+
+          if (hasVocab && hasGrammar && hasSpeaking && hasListening) {
+            updateData.status = 'completed';
+            updateData.completedAt = new Date();
+          }
+
+          await db.assessment.update({
+            where: { id: assessment.id },
+            data: updateData,
+          });
+
+          // Save individual answers
+          if (answers && answers.length > 0) {
+            await db.answer.createMany({
+              data: (answers as AnswerInput[]).map((a) => ({
+                assessmentId: assessment!.id,
+                module,
+                questionId: a.questionId,
+                selectedAnswer: a.selectedAnswer,
+                isCorrect: a.isCorrect,
+                timeTaken: a.timeTaken,
+              })),
+            }).catch(() => {});
+          }
+        }
       }
-
-      // Update assessment scores based on module
-      const updateData: Record<string, unknown> = { currentModule: module };
-
-      // Add integrity flags if suspicious
-      if (integrityAnalysis?.suspicious) {
-        updateData.integrityFlags = JSON.stringify(integrityAnalysis.flags);
-        updateData.flagged = true;
-        updateData.flagReason = integrityAnalysis.flags.map((f) => f.message).join('; ');
-      }
-
-      if (module === 'vocabulary' && scores) {
-        updateData.voBand1 = scores.band1;
-        updateData.voBand2 = scores.band2;
-        updateData.voBand3 = scores.band3;
-        updateData.voBand4 = scores.band4;
-        updateData.voBand5 = scores.band5;
-        updateData.voEstimatedSize = scores.estimatedSize;
-        updateData.voOverall = scores.overall;
-        updateData.voLevel = scores.level;
-      }
-
-      if (module === 'grammar' && scores) {
-        updateData.grPercentage = scores.percentage;
-        updateData.grLevel = scores.level;
-      }
-
-      if (module === 'speaking' && scores) {
-        updateData.spPronunciation = scores.pronunciation;
-        updateData.spFluency = scores.fluency;
-        updateData.spWordsPerMinute = scores.wordsPerMinute;
-        updateData.spPhonemeAcc = scores.phonemeAccuracy;
-        updateData.spGrammarAcc = scores.grammarAccuracy;
-        updateData.spVocabRange = scores.vocabularyRange;
-        updateData.spConfidence = scores.confidence;
-        updateData.spRhythmMatch = scores.rhythmMatch;
-        updateData.spOverall = scores.overall;
-        updateData.spLevel = scores.level;
-      }
-
-      if (module === 'listening' && scores) {
-        updateData.liLiteral = scores.literalComprehension;
-        updateData.liInference = scores.inference;
-        updateData.liDetailRecognition = scores.detailRecognition;
-        updateData.liOverall = scores.overall;
-        updateData.liLevel = scores.level;
-      }
-
-      await db.assessment.update({
-        where: { id: assessmentId },
-        data: updateData,
-      }).catch(() => {
-        // Assessment might not exist, that's OK for demo
-      });
     } catch (dbError) {
       console.log('DB save failed, continuing:', dbError);
     }
