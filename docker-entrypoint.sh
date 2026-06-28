@@ -6,9 +6,9 @@
 
 echo "🏛️ Empire Assessment — Starting..."
 
-# Initialize SQLite database tables
+# Initialize SQLite database tables using the full prisma package (not .bin symlink)
 echo "📦 Initializing database..."
-./node_modules/.bin/prisma db push --schema=./prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 || echo "⚠️ Prisma db push had issues, continuing anyway"
+node ./node_modules/prisma/build/index.js db push --schema=./prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 || echo "⚠️ Prisma db push had issues, continuing anyway"
 echo "✅ Database ready"
 
 # Start the server
