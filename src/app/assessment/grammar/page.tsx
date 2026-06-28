@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
@@ -129,15 +130,20 @@ export default function GrammarAssessmentPage() {
   const [level, setLevel] = useState<ImperialLevel>(0);
   const [topicScores, setTopicScores] = useState<Record<string, TopicScore>>({});
 
-  // Get userId from storage
+  // Get userId from session (REAL database ID)
+  const { data: authSession } = useSession();
   const getUserId = useCallback((): string => {
-    if (typeof window === 'undefined') return 'demo-user';
+    const sessionUserId = (authSession?.user as Record<string, unknown>)?.id as string;
+    if (sessionUserId) return sessionUserId;
+    const email = authSession?.user?.email;
+    if (email) return email;
+    if (typeof window === 'undefined') return '';
     try {
-      return localStorage.getItem('userId') || sessionStorage.getItem('userId') || 'demo-user';
+      return localStorage.getItem('empire-user-id') || '';
     } catch {
-      return 'demo-user';
+      return '';
     }
-  }, []);
+  }, [authSession]);
 
   // Fetch session from Dynamic Assessment Engine
   const fetchQuestions = useCallback(async (forceNew = false) => {
@@ -234,6 +240,27 @@ export default function GrammarAssessmentPage() {
       if (sessionId) {
         completeSession(sessionId);
       }
+      // Submit scores to assessment record for dashboard
+      const allAnswers = [...answers, newAnswer];
+      const totalCorrect = allAnswers.filter(a => a.isCorrect).length;
+      const pct = Math.round((totalCorrect / questions.length) * 100);
+      const lvl = pct <= 35 ? 0 : pct <= 60 ? 1 : pct <= 80 ? 2 : 3;
+      fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          module: 'grammar',
+          userId: getUserId(),
+          answers: allAnswers.map(a => ({
+            questionId: a.questionId,
+            selectedAnswer: a.selectedAnswer,
+            isCorrect: a.isCorrect,
+            timeTaken: a.timeTaken,
+          })),
+          scores: { percentage: pct, overall: pct, level: lvl },
+        }),
+      }).catch(() => {});
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
@@ -153,6 +154,7 @@ const ttsRates: Record<ListeningSpeed, number> = { slow: 0.6, natural: 0.9, fast
 // ─── Main Component ────────────────────────────────────────
 
 export default function ListeningAssessmentPage() {
+  const { data: authSession } = useSession();
   const [phase, setPhase] = useState<Phase>('intro');
   const [currentSpeedIndex, setCurrentSpeedIndex] = useState(0);
   const [passages, setPassages] = useState<Record<ListeningSpeed, PassageContent | null>>({
@@ -268,6 +270,28 @@ export default function ListeningAssessmentPage() {
 
   // ─── Score ─────────────────────────────────────────────
   const scoreResult = calculateListeningScore(results);
+
+  // ─── Submit scores to dashboard when results shown ─────
+  useEffect(() => {
+    if (phase !== 'results') return;
+    const userId = (authSession?.user as Record<string, unknown>)?.id as string || authSession?.user?.email || '';
+    fetch('/api/assessment/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        module: 'listening',
+        userId,
+        answers: [],
+        scores: {
+          literalComprehension: scoreResult.details.literalScore,
+          inference: scoreResult.details.inferenceScore,
+          overall: scoreResult.overallScore,
+          level: scoreResult.level,
+        },
+      }),
+    }).catch(() => {});
+  }, [phase]);
 
   // ─── Progress ──────────────────────────────────────────
   const getOverallProgress = () => {
