@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSession } from 'next-auth/react';
 import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, SectionDivider, ImperialRankBadge, ProgressBar, TacticalPanel, GlowingBorder, TestimonialsSection, SocialMediaSection, SponsorshipSection, FounderSection } from '@/components/empire';
 import { Swords, Shield, BookOpen, Headphones } from 'lucide-react';
 
@@ -54,6 +55,9 @@ const fadeUp = {
 };
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === 'authenticated' && !!session;
+
   return (
     <div className="min-h-screen flex flex-col empire-bg">
       <ParticleBackground />
@@ -94,16 +98,16 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register">
+            <Link href={isLoggedIn ? '/assessment' : '/register'}>
               <GlowingBorder intensity="high">
                 <ImperialButton variant="primary" size="lg">
-                  Begin Your Trials
+                  {isLoggedIn ? 'Go to Trials' : 'Begin Your Trials'}
                 </ImperialButton>
               </GlowingBorder>
             </Link>
-            <a href="#trials">
+            <a href={isLoggedIn ? '/dashboard' : '#trials'}>
               <ImperialButton variant="outline" size="lg">
-                Learn More
+                {isLoggedIn ? 'Your Dashboard' : 'Learn More'}
               </ImperialButton>
             </a>
           </div>
@@ -277,9 +281,9 @@ export default function Home() {
               <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg italic mb-8">
                 Enter the gates. Face the Four Trials. Claim your Imperial Rank.
               </p>
-              <Link href="/register">
+              <Link href={isLoggedIn ? '/assessment' : '/register'}>
                 <ImperialButton variant="primary" size="lg">
-                  Join the Empire
+                  {isLoggedIn ? 'Continue Your Trials' : 'Join the Empire'}
                 </ImperialButton>
               </Link>
             </MetallicCard>
