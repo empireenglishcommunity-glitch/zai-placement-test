@@ -336,3 +336,138 @@ export function formatRemainingTime(ms: number): string {
   if (minutes > 0) return `${minutes}m ${secs}s`;
   return `${secs}s`;
 }
+
+// ─── Response Time Analysis (Anti-Cheating) ────────────────
+// Flags answers that are too fast (likely guessing/bot) or
+// patterns indicating lookup behavior.
+
+export interface AnswerTiming {
+  elapsed: number | null; // seconds per question
+  correct: boolean;
+}
+
+export interface SuspicionFlag {
+  type: 'too_fast' | 'bulk_instant' | 'perfect_fast' | 'too_slow_perfect';
+  message: string;
+}
+
+export interface ResponseTimeAnalysis {
+  suspicious: boolean;
+  flags: SuspicionFlag[];
+  averageTime: number;
+  instantCount: number;
+}
+
+export function analyzeResponseTimes(answers: AnswerTiming[]): ResponseTimeAnalysis {
+  if (!answers || answers.length === 0) {
+    return { suspicious: false, flags: [], averageTime: 0, instantCount: 0 };
+  }
+
+  const flags: SuspicionFlag[] = [];
+  const times = answers
+    .filter((a) => a.elapsed != null)
+    .map((a) => a.elapsed as number);
+
+  if (times.length === 0) {
+    return { suspicious: false, flags: [], averageTime: 0, instantCount: 0 };
+  }
+
+  const avgTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+
+  // Too fast: < 3 seconds average suggests random clicking or bot
+  if (avgTime < 3) {
+    flags.push({
+      type: 'too_fast',
+      message: `Average response time ${avgTime.toFixed(1)}s — suspiciously fast.`,
+    });
+  }
+
+  // Count instant answers (< 2 seconds)
+  const instantCount = times.filter((t) => t < 2).length;
+  if (instantCount > times.length * 0.5) {
+    flags.push({
+      type: 'bulk_instant',
+      message: `${instantCount}/${times.length} answers under 2 seconds.`,
+    });
+  }
+
+  // Perfect score with very fast times is suspicious
+  const correctCount = answers.filter((a) => a.correct).length;
+  if (correctCount === answers.length && avgTime < 5) {
+    flags.push({
+      type: 'perfect_fast',
+      message: 'Perfect score with very fast responses — possible answer knowledge.',
+    });
+  }
+
+  // Very slow average + perfect score suggests looking up answers
+  if (correctCount === answers.length && avgTime > 45) {
+    flags.push({
+      type: 'too_slow_perfect',
+      message: 'Perfect score with unusually slow responses — possible external lookup.',
+    });
+  }
+
+  return {
+    suspicious: flags.length > 0,
+    flags,
+    averageTime: avgTime,
+    instantCount,
+  };
+}
+
+// ─── Assessment Integrity Score ─────────────────────────────
+// Calculates an overall integrity score across all completed modules.
+// Used by admin to flag assessments needing human review.
+
+export interface ModuleAnswers {
+  [module: string]: AnswerTiming[];
+}
+
+export interface IntegrityResult {
+  score: number; // 0-100 (100 = no flags, fully trusted)
+  level: 'high' | 'medium' | 'low';
+  totalFlags: number;
+  flagsByModule: Record<string, SuspicionFlag[]>;
+}
+
+export function calculateIntegrityScore(moduleResults: ModuleAnswers): IntegrityResult {
+  let totalFlags = 0;
+  let totalModules = 0;
+  const flagsByModule: Record<string, SuspicionFlag[]> = {};
+
+  for (const [moduleName, answers] of Object.entries(moduleResults)) {
+    if (!Array.isArray(answers)) continue;
+    totalModules++;
+
+    const analysis = analyzeResponseTimes(answers);
+    totalFlags += analysis.flags.length;
+    if (analysis.flags.length > 0) {
+      flagsByModule[moduleName] = analysis.flags;
+    }
+  }
+
+  if (totalModules === 0) {
+    return { score: 100, level: 'high', totalFlags: 0, flagsByModule: {} };
+  }
+
+  // Each flag reduces integrity by 15 points (from 100)
+  const score = Math.max(0, 100 - totalFlags * 15);
+
+  let level: 'high' | 'medium' | 'low';
+  if (score >= 80) level = 'high';
+  else if (score >= 50) level = 'medium';
+  else level = 'low';
+
+  return { score, level, totalFlags, flagsByModule };
+}
+
+// ─── Imperial Training Paths ────────────────────────────────
+// Used by the results page to show recommended study plan
+
+export const IMPERIAL_TRAINING_PATHS: Record<number, string> = {
+  0: 'Begin with the Foundation Path: Focus on basic grammar, essential vocabulary (500 words), slow listening, and pronunciation fundamentals.',
+  1: 'Follow the Initiate Path: Strengthen grammar accuracy, expand vocabulary to 2000+ words, practice natural-speed listening, and work on fluency.',
+  2: 'Embark on the Warrior Path: Master advanced grammar (conditionals, passive voice), push vocabulary to 3000+ words, train with fast listening.',
+  3: 'Enter the Champion Path: Perfect nuanced grammar, expand vocabulary beyond 5000 words, master rapid listening, achieve near-native proficiency.',
+};
