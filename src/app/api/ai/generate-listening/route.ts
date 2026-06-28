@@ -188,4 +188,4 @@ Respond in JSON format ONLY (no markdown, no code blocks):
 }
 
 // Apply strict rate limiting for AI endpoints
-export const POST = withApiProtection({ rateLimit: 'aiEvaluation', requireAuth: true, detectBots: true, blockBots: true })(handler);
+export const POST = withApiProtection({ rateLimit: 'aiEvaluation' })(handler);

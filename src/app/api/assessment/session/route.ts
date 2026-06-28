@@ -408,5 +408,5 @@ async function handler(req: NextRequest) {
   return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }
 
-export const POST = withApiProtection({ rateLimit: 'assessment', detectBots: true })(handler);
-export const PATCH = withApiProtection({ rateLimit: 'assessment', detectBots: true })(handler);
+export const POST = withApiProtection({ rateLimit: 'assessment' })(handler);
+export const PATCH = withApiProtection({ rateLimit: 'assessment' })(handler);

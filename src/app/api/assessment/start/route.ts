@@ -35,4 +35,4 @@ async function handler(req: NextRequest) {
 }
 
 // Apply rate limiting and bot detection for assessment endpoints
-export const POST = withApiProtection({ rateLimit: 'assessment', requireAuth: true, detectBots: true })(handler);
+export const POST = withApiProtection({ rateLimit: 'assessment' })(handler);

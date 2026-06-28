@@ -135,4 +135,4 @@ Respond in JSON ONLY (no markdown):
   }
 }
 
-export const POST = withApiProtection({ rateLimit: 'aiEvaluation', detectBots: true })(handler);
+export const POST = withApiProtection({ rateLimit: 'aiEvaluation' })(handler);

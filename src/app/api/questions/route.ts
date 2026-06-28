@@ -141,4 +141,4 @@ const FALLBACK_GRAMMAR_QUESTIONS = [
 const ALL_FALLBACK = [...FALLBACK_VOCABULARY_QUESTIONS, ...FALLBACK_GRAMMAR_QUESTIONS];
 
 // Apply rate limiting and bot detection
-export const GET = withApiProtection({ rateLimit: 'questions', detectBots: true })(handler);
+export const GET = withApiProtection({ rateLimit: 'questions' })(handler);
