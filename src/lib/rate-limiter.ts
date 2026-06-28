@@ -23,20 +23,20 @@ interface RateLimitConfig {
 // ─── Preset Configurations ─────────────────────────────────────
 
 export const RATE_LIMIT_PRESETS = {
-  /** Assessment API: 10 requests per minute */
-  assessment: { maxRequests: 10, windowMs: 60_000, blockDurationMs: 120_000 },
-  /** Question fetching: 20 requests per minute */
-  questions: { maxRequests: 20, windowMs: 60_000, blockDurationMs: 60_000 },
-  /** AI evaluation: 6 requests per minute (expensive) */
-  aiEvaluation: { maxRequests: 6, windowMs: 60_000, blockDurationMs: 180_000 },
-  /** Email sending: 5 requests per minute */
-  email: { maxRequests: 5, windowMs: 60_000, blockDurationMs: 300_000 },
-  /** Auth endpoints: 8 requests per minute */
-  auth: { maxRequests: 8, windowMs: 60_000, blockDurationMs: 300_000 },
-  /** General API: 30 requests per minute */
-  general: { maxRequests: 30, windowMs: 60_000, blockDurationMs: 60_000 },
-  /** Admin endpoints: 15 requests per minute */
-  admin: { maxRequests: 15, windowMs: 60_000, blockDurationMs: 120_000 },
+  /** Assessment API: 60 requests per minute */
+  assessment: { maxRequests: 60, windowMs: 60_000, blockDurationMs: 30_000 },
+  /** Question fetching: 60 requests per minute */
+  questions: { maxRequests: 60, windowMs: 60_000, blockDurationMs: 30_000 },
+  /** AI evaluation: 30 requests per minute */
+  aiEvaluation: { maxRequests: 30, windowMs: 60_000, blockDurationMs: 30_000 },
+  /** Email sending: 10 requests per minute */
+  email: { maxRequests: 10, windowMs: 60_000, blockDurationMs: 60_000 },
+  /** Auth endpoints: 20 requests per minute */
+  auth: { maxRequests: 20, windowMs: 60_000, blockDurationMs: 60_000 },
+  /** General API: 100 requests per minute */
+  general: { maxRequests: 100, windowMs: 60_000, blockDurationMs: 30_000 },
+  /** Admin endpoints: 40 requests per minute */
+  admin: { maxRequests: 40, windowMs: 60_000, blockDurationMs: 30_000 },
 } as const;
 
 export type RateLimitPreset = keyof typeof RATE_LIMIT_PRESETS;
