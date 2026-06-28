@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar, Footer, ParticleBackground, ImperialButton, SectionDivider } from '@/components/empire';
@@ -56,6 +57,8 @@ const sections = [
 ];
 
 export default function TermsOfServicePage() {
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === 'authenticated' && !!session;
   return (
     <div className="min-h-screen flex flex-col empire-bg">
       <ParticleBackground />
@@ -177,10 +180,10 @@ export default function TermsOfServicePage() {
               </Link>
             </div>
             <div className="pt-4">
-              <Link href="/register">
+              <Link href={isLoggedIn ? '/assessment' : '/register'}>
                 <ImperialButton variant="primary" size="lg">
                   <span className="flex items-center gap-2">
-                    Accept & Continue
+                    {isLoggedIn ? 'Back to Trials' : 'Accept & Continue'}
                     <ChevronRight className="w-4 h-4" />
                   </span>
                 </ImperialButton>
