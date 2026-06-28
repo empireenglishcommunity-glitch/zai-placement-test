@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-// EMPIRE ENGLISH COMMUNITY — AI Speaking Evaluator
-// Uses Gemini 2.5 Flash for pronunciation/fluency assessment
-// Falls back to heuristic scoring if AI unavailable
+// EMPIRE ENGLISH COMMUNITY — AI Speaking Evaluator (Text-Based)
+// Evaluates REAL transcripts from browser Speech Recognition
+// No fake scores — if no text, score is 0.
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,193 +21,118 @@ async function callGemini(prompt: string): Promise<string | null> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+          generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
         }),
       }
     );
-
     if (!res.ok) return null;
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── Evaluation Prompts by Part Type ────────────────────────
-
-function getEvaluationPrompt(part: string, passage: string, transcript?: string): string {
-  if (part === 'read_aloud') {
-    return `You are an expert English pronunciation evaluator for a placement test. The student was asked to read this passage aloud:
-
-"${passage}"
-
-${transcript ? `Their transcribed speech was: "${transcript}"` : 'Audio was provided but no transcript is available. Please provide estimated scores based on typical learner performance.'}
-
-Evaluate their reading on these criteria (score 0-100 for each):
-- pronunciation: How accurately are words pronounced?
-- fluency: How smoothly and naturally do they read?
-- wordsPerMinute: Estimated speaking rate (realistic value 60-200)
-- phonemeAccuracy: How accurately are individual sounds produced?
-- grammarAccuracy: Are all words read correctly without substitutions?
-- vocabularyRange: Based on how they handle complex words
-- confidence: How confident does the reading sound?
-
-Also provide brief constructive feedback (2-3 sentences) in a supportive tone.
-
-Respond in JSON format ONLY (no markdown):
-{
-  "pronunciation": <number>,
-  "fluency": <number>,
-  "wordsPerMinute": <number>,
-  "phonemeAccuracy": <number>,
-  "grammarAccuracy": <number>,
-  "vocabularyRange": <number>,
-  "confidence": <number>,
-  "feedback": "<string>"
-}`;
-  }
-
-  if (part === 'spontaneous') {
-    return `You are an expert English speaking evaluator for a placement test. The student was given the prompt: "${passage}" and spoke spontaneously for up to 60 seconds.
-
-${transcript ? `Their transcribed speech was: "${transcript}"` : 'Audio was provided but no transcript is available. Please provide estimated scores for a typical intermediate learner.'}
-
-Evaluate their speaking on these criteria (score 0-100 for each):
-- pronunciation: How accurately are words pronounced?
-- fluency: How smoothly and naturally do they speak?
-- wordsPerMinute: Estimated speaking rate (realistic value 60-180)
-- phonemeAccuracy: How accurately are individual sounds produced?
-- grammarAccuracy: How grammatically correct is their speech?
-- vocabularyRange: How diverse and appropriate is their vocabulary?
-- confidence: How confident and natural do they sound?
-
-Provide brief constructive feedback (2-3 sentences).
-
-Respond in JSON format ONLY (no markdown):
-{
-  "pronunciation": <number>,
-  "fluency": <number>,
-  "wordsPerMinute": <number>,
-  "phonemeAccuracy": <number>,
-  "grammarAccuracy": <number>,
-  "vocabularyRange": <number>,
-  "confidence": <number>,
-  "feedback": "<string>"
-}`;
-  }
-
-  // Shadowing
-  return `You are an expert English shadowing evaluator for a placement test. The student heard a 15-second audio clip and repeated it. The original text was: "${passage}"
-
-${transcript ? `Their repeated speech was transcribed as: "${transcript}"` : 'Audio was provided but no transcript is available. Please provide estimated scores.'}
-
-Evaluate their shadowing on these criteria (score 0-100 for each):
-- rhythmMatch: How well does their rhythm match the original?
-- pronunciationSimilarity: How similar is their pronunciation?
-- phonemeMatch: How accurately did they reproduce individual sounds?
-- pronunciation: Overall pronunciation quality
-- fluency: Overall fluency
-- wordsPerMinute: Estimated speaking rate (60-150)
-- phonemeAccuracy: Individual sound accuracy
-- grammarAccuracy: Correct word reproduction
-- vocabularyRange: Quality of word reproduction
-- confidence: How confident do they sound?
-
-Provide brief constructive feedback (2-3 sentences).
-
-Respond in JSON format ONLY (no markdown):
-{
-  "rhythmMatch": <number>,
-  "pronunciationSimilarity": <number>,
-  "phonemeMatch": <number>,
-  "pronunciation": <number>,
-  "fluency": <number>,
-  "wordsPerMinute": <number>,
-  "phonemeAccuracy": <number>,
-  "grammarAccuracy": <number>,
-  "vocabularyRange": <number>,
-  "confidence": <number>,
-  "feedback": "<string>"
-}`;
-}
-
-// ─── Heuristic Fallback Scoring ─────────────────────────────
-// When AI is unavailable, provide reasonable baseline scores
-// based on the part type and whether a transcript exists
-
-function generateFallbackEvaluation(part: string, hasTranscript: boolean) {
-  // Base scores for a mid-level learner (varies slightly)
-  const baseScore = hasTranscript ? 60 : 55;
-  const variance = () => Math.floor(Math.random() * 15) - 5; // -5 to +10
-
-  const evaluation: Record<string, number | string> = {
-    pronunciation: baseScore + variance(),
-    fluency: baseScore - 5 + variance(),
-    wordsPerMinute: 90 + Math.floor(Math.random() * 40),
-    phonemeAccuracy: baseScore - 3 + variance(),
-    grammarAccuracy: baseScore + 5 + variance(),
-    vocabularyRange: baseScore + variance(),
-    confidence: baseScore - 8 + variance(),
-    feedback: 'Your assessment has been recorded. Continue practicing daily to strengthen your pronunciation, fluency, and confidence. Focus on natural rhythm and intonation.',
-  };
-
-  if (part === 'shadowing') {
-    evaluation.rhythmMatch = baseScore - 5 + variance();
-    evaluation.pronunciationSimilarity = baseScore + variance();
-    evaluation.phonemeMatch = baseScore - 3 + variance();
-  }
-
-  // Clamp all numeric values to 0-100
-  for (const key of Object.keys(evaluation)) {
-    if (typeof evaluation[key] === 'number' && key !== 'wordsPerMinute') {
-      evaluation[key] = Math.max(0, Math.min(100, evaluation[key] as number));
-    }
-  }
-
-  return evaluation;
+  } catch { return null; }
 }
 
 // ─── Handler ────────────────────────────────────────────────
 
 async function handler(req: NextRequest) {
   try {
-    const { audioBase64, passage, part, transcript } = await req.json();
+    const { transcript, expectedText, part } = await req.json();
 
-    if (!part) {
-      return NextResponse.json({ error: 'Part type required (read_aloud, spontaneous, shadowing)' }, { status: 400 });
+    // No transcript = no score (honest evaluation)
+    if (!transcript || transcript.trim().length === 0) {
+      return NextResponse.json({
+        evaluation: {
+          overallScore: 0, pronunciation: 0, fluency: 0,
+          grammar: 0, vocabulary: 0, coherence: 0, similarity: 0,
+          feedback: 'No speech detected.',
+        },
+      });
     }
 
-    // Build prompt with transcript if available
-    const prompt = getEvaluationPrompt(part, passage || '', transcript);
+    const cleanTranscript = transcript.trim();
+    const wordCount = cleanTranscript.split(/\s+/).length;
 
-    // Try Gemini API
+    // Too few words
+    if (wordCount < 3) {
+      return NextResponse.json({
+        evaluation: {
+          overallScore: 5, pronunciation: 5, fluency: 5,
+          grammar: 5, vocabulary: 5, coherence: 5, similarity: 0,
+          feedback: 'Too few words spoken to evaluate properly.',
+        },
+      });
+    }
+
+    // Build evaluation prompt based on part type
+    let prompt = '';
+    if (part === 'read_aloud' || part === 'shadowing') {
+      prompt = `You are an English language assessor. A student was asked to read/repeat this text:
+
+EXPECTED: "${expectedText}"
+
+WHAT THEY ACTUALLY SAID (transcribed by speech recognition):
+"${cleanTranscript}"
+
+Evaluate how accurately they reproduced the text. Score each 0-100:
+- overallScore: Overall quality of their speaking
+- pronunciation: Based on how well the words match (speech recognition accuracy reflects pronunciation)
+- fluency: Speaking pace and smoothness (word count: ${wordCount}, indicates flow)
+- grammar: Did they use correct grammar in what they said?
+- vocabulary: Did they use the right words?
+- coherence: Does what they said make sense?
+- similarity: How closely does their speech match the expected text? (word overlap percentage)
+
+Provide 1-2 sentences of constructive feedback.
+
+IMPORTANT: Be STRICT. If they said completely different words, similarity should be very low.
+If they only said a few words of a long passage, score should be proportionally low.
+
+Respond in JSON ONLY (no markdown):
+{"overallScore":<n>,"pronunciation":<n>,"fluency":<n>,"grammar":<n>,"vocabulary":<n>,"coherence":<n>,"similarity":<n>,"feedback":"<string>"}`;
+    } else {
+      prompt = `You are an English language assessor. A student was given this speaking prompt:
+
+PROMPT: "${expectedText}"
+
+WHAT THEY SAID (transcribed by speech recognition):
+"${cleanTranscript}"
+
+They spoke ${wordCount} words. Evaluate their spontaneous speaking:
+- overallScore: Overall quality (0-100)
+- pronunciation: Not directly measurable from text, estimate based on word choices (0-100)
+- fluency: Based on word count and apparent flow (0-100)
+- grammar: Grammatical accuracy of their sentences (0-100)
+- vocabulary: Range and appropriateness of vocabulary used (0-100)
+- coherence: How well-organized and relevant their response is (0-100)
+
+Provide 1-2 sentences of constructive feedback.
+
+IMPORTANT: Be FAIR but STRICT.
+- If they said fewer than 10 words, fluency and coherence should be low.
+- If grammar is poor, score grammar low.
+- If vocabulary is basic/repetitive, score vocabulary low.
+
+Respond in JSON ONLY (no markdown):
+{"overallScore":<n>,"pronunciation":<n>,"fluency":<n>,"grammar":<n>,"vocabulary":<n>,"coherence":<n>,"feedback":"<string>"}`;
+    }
+
     const responseText = await callGemini(prompt);
 
     if (responseText) {
       try {
-        const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const evaluation = JSON.parse(cleanJson);
-
-        // Validate that we have at least the basic fields
-        if (typeof evaluation.pronunciation === 'number' && typeof evaluation.fluency === 'number') {
+        const clean = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const evaluation = JSON.parse(clean);
+        if (typeof evaluation.overallScore === 'number') {
           return NextResponse.json({ evaluation, source: 'ai' });
         }
-      } catch {
-        // JSON parse failed, fall through to fallback
-      }
+      } catch { /* fall through */ }
     }
 
-    // Fallback: heuristic scoring
-    const evaluation = generateFallbackEvaluation(part, !!transcript || !!audioBase64);
-    return NextResponse.json({ evaluation, source: 'heuristic' });
+    // If AI fails, return null — let frontend use its local evaluation
+    return NextResponse.json({ evaluation: null, source: 'unavailable' });
   } catch (error) {
     console.error('Speaking evaluation error:', error);
-    // Always return a result so assessment can continue
-    const evaluation = generateFallbackEvaluation('read_aloud', false);
-    return NextResponse.json({ evaluation, source: 'fallback' });
+    return NextResponse.json({ evaluation: null, source: 'error' });
   }
 }
 
-// Apply strict rate limiting for expensive AI endpoints
-export const POST = withApiProtection({ rateLimit: 'aiEvaluation', requireAuth: true, detectBots: true, blockBots: true })(handler);
+export const POST = withApiProtection({ rateLimit: 'aiEvaluation', detectBots: true })(handler);
