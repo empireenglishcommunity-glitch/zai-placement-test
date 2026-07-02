@@ -98,6 +98,14 @@ model Assessment {
   grPercentage Float?
   grLevel      Int?
 
+  // TOEFL Section Scores (0-30 each, new format)
+  readingScore   Float?   // 0-30
+  listeningScore Float?   // 0-30
+  speakingScore  Float?   // 0-30
+  writingScore   Float?   // 0-30
+  totalScore     Float?   // 0-120
+  cefrLevel      String?  // A1, A2-B1, B1-B2, C1-C2
+
   // Final result
   assignedLevel Int?
   flagged       Boolean  @default(false)

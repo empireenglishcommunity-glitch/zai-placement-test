@@ -10,10 +10,12 @@ interface EmpireCertificateProps {
   studentName: string;
   rankName: string;
   finalLevel: number;
-  speakingScore: number;
+  readingScore: number;
   listeningScore: number;
-  vocabularyScore: number;
-  grammarScore: number;
+  speakingScore: number;
+  writingScore: number;
+  totalScore: number;
+  cefrLevel: string;
   completionDate?: string;
   /** User email for watermark */
   studentEmail?: string;
@@ -32,10 +34,12 @@ export function EmpireCertificate({
   studentName,
   rankName,
   finalLevel,
-  speakingScore,
+  readingScore,
   listeningScore,
-  vocabularyScore,
-  grammarScore,
+  speakingScore,
+  writingScore,
+  totalScore,
+  cefrLevel,
   completionDate,
   studentEmail,
 }: EmpireCertificateProps) {
@@ -331,26 +335,39 @@ export function EmpireCertificate({
             </p>
           </div>
 
-          {/* Scores row */}
-          <div className="flex items-center justify-center gap-4 sm:gap-6 flex-wrap mb-6 text-[10px] sm:text-xs">
+          {/* Scores row — TOEFL format */}
+          <div className="flex items-center justify-center gap-4 sm:gap-6 flex-wrap mb-4 text-[10px] sm:text-xs">
             <div>
-              <p style={{ color: '#cd7f32' }} className="font-[family-name:var(--font-heading)]">{speakingScore}%</p>
-              <p className="text-[#8b7355]">Speaking</p>
+              <p style={{ color: '#c9a84c' }} className="font-[family-name:var(--font-heading)] text-sm font-bold">{readingScore}/30</p>
+              <p className="text-[#8b7355]">Reading</p>
             </div>
             <div className="w-px h-6 bg-[rgba(201,168,76,0.2)]" />
             <div>
-              <p style={{ color: '#c9a84c' }} className="font-[family-name:var(--font-heading)]">{listeningScore}%</p>
+              <p style={{ color: '#cd7f32' }} className="font-[family-name:var(--font-heading)] text-sm font-bold">{listeningScore}/30</p>
               <p className="text-[#8b7355]">Listening</p>
             </div>
             <div className="w-px h-6 bg-[rgba(201,168,76,0.2)]" />
             <div>
-              <p style={{ color: '#ff6b35' }} className="font-[family-name:var(--font-heading)]">~{vocabularyScore.toLocaleString()}</p>
-              <p className="text-[#8b7355]">Vocabulary</p>
+              <p style={{ color: '#ff6b35' }} className="font-[family-name:var(--font-heading)] text-sm font-bold">{speakingScore}/30</p>
+              <p className="text-[#8b7355]">Speaking</p>
             </div>
             <div className="w-px h-6 bg-[rgba(201,168,76,0.2)]" />
             <div>
-              <p style={{ color: '#e74c3c' }} className="font-[family-name:var(--font-heading)]">{grammarScore}%</p>
-              <p className="text-[#8b7355]">Grammar</p>
+              <p style={{ color: '#9b59b6' }} className="font-[family-name:var(--font-heading)] text-sm font-bold">{writingScore}/30</p>
+              <p className="text-[#8b7355]">Writing</p>
+            </div>
+          </div>
+
+          {/* Total + CEFR */}
+          <div className="flex items-center justify-center gap-6 mb-6">
+            <div className="text-center">
+              <p className="font-[family-name:var(--font-heading)] text-2xl font-bold" style={{ color: accentColor }}>{totalScore}/120</p>
+              <p className="text-[#8b7355] text-[10px]">Total Score</p>
+            </div>
+            <div className="w-px h-8 bg-[rgba(201,168,76,0.2)]" />
+            <div className="text-center">
+              <p className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[#cd7f32]">{cefrLevel}</p>
+              <p className="text-[#8b7355] text-[10px]">CEFR Level</p>
             </div>
           </div>
 

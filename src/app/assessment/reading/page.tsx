@@ -40,10 +40,35 @@ export default function ReadingAssessmentPage() {
 
   // ─── Start Trial ─────────────────────────────────────────
 
+  const handleStart = useCallback(async () => {
+    // Try AI-generated passages first, fallback to static bank
+    const difficulties: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
+    const aiPassages: ReadingPassage[] = [];
 
-  const handleStart = useCallback(() => {
-    const set = getReadingSet();
-    setPassages(set);
+    for (const diff of difficulties) {
+      try {
+        const res = await fetch('/api/ai/generate-reading', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ difficulty: diff }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.passage && data.source === 'ai') {
+            aiPassages.push(data.passage);
+            continue;
+          }
+        }
+      } catch { /* AI failed, will use fallback */ }
+      // If AI failed for this difficulty, leave empty (will be filled below)
+      aiPassages.push(null as unknown as ReadingPassage);
+    }
+
+    // Fill in any gaps with static passages
+    const staticSet = getReadingSet();
+    const finalPassages = aiPassages.map((p, i) => p || staticSet[i]);
+
+    setPassages(finalPassages);
     setCurrentPassageIndex(0);
     setCurrentQuestionIndex(0);
     setAnswers([]);
