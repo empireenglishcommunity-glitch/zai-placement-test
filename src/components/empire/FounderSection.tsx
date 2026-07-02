@@ -135,7 +135,7 @@ export function FounderSection() {
               icon: Swords,
               title: 'Structured Ranking System',
               description:
-                'From Recruit to Champion, the Imperial Rank system provides clear, meaningful placement based on demonstrated skill. The four-module approach — Speaking, Listening, Vocabulary, and Grammar — ensures a comprehensive evaluation that reflects real-world English capability.',
+                'From Recruit to Champion, the Imperial Rank system provides clear, meaningful placement based on demonstrated skill. The four-section approach — Reading, Listening, Speaking, and Writing — ensures a comprehensive evaluation that reflects real-world English capability.',
             },
             {
               icon: Shield,
