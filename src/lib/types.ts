@@ -4,7 +4,7 @@
 
 // ─── Assessment Module Types ───────────────────────────────
 
-export type ModuleType = 'speaking' | 'listening' | 'vocabulary' | 'grammar';
+export type ModuleType = 'reading' | 'listening' | 'speaking' | 'writing' | 'vocabulary' | 'grammar';
 
 export type AssessmentStatus = 'not_started' | 'in_progress' | 'completed';
 
@@ -227,4 +227,61 @@ export interface AIShadowingEvaluation {
   pronunciationSimilarity: number;
   phonemeMatch: number;
   feedback: string;
+}
+
+
+
+// ═══════════════════════════════════════════════════════════
+// TOEFL-EQUIVALENT SCORING SYSTEM (0-120)
+// 4 sections × 0-30 each = 0-120 total
+// ═══════════════════════════════════════════════════════════
+
+export type TOEFLSection = 'reading' | 'listening' | 'speaking' | 'writing';
+
+export interface TOEFLSectionScore {
+  section: TOEFLSection;
+  score: number; // 0-30
+  level: ImperialLevel;
+}
+
+export interface TOEFLTotalScore {
+  reading: number;    // 0-30
+  listening: number;  // 0-30
+  speaking: number;   // 0-30
+  writing: number;    // 0-30
+  total: number;      // 0-120
+  imperialLevel: ImperialLevel;
+  cefr: string;       // A1, A2, B1, B2, C1, C2
+}
+
+// ─── TOEFL Level Thresholds (0-120 scale) ──────────────────
+
+export const TOEFL_LEVEL_THRESHOLDS: { min: number; max: number; level: ImperialLevel; cefr: string }[] = [
+  { min: 0, max: 31, level: 0, cefr: 'A1' },
+  { min: 32, max: 59, level: 1, cefr: 'A2-B1' },
+  { min: 60, max: 93, level: 2, cefr: 'B1-B2' },
+  { min: 94, max: 120, level: 3, cefr: 'C1-C2' },
+];
+
+// ─── Section Score → Level (0-30 scale per section) ────────
+
+export const SECTION_LEVEL_THRESHOLDS: { min: number; max: number; level: ImperialLevel }[] = [
+  { min: 0, max: 7, level: 0 },
+  { min: 8, max: 14, level: 1 },
+  { min: 15, max: 23, level: 2 },
+  { min: 24, max: 30, level: 3 },
+];
+
+export function getSectionLevel(score: number): ImperialLevel {
+  for (const t of SECTION_LEVEL_THRESHOLDS) {
+    if (score >= t.min && score <= t.max) return t.level;
+  }
+  return 0;
+}
+
+export function getTotalLevel(total: number): { level: ImperialLevel; cefr: string } {
+  for (const t of TOEFL_LEVEL_THRESHOLDS) {
+    if (total >= t.min && total <= t.max) return { level: t.level, cefr: t.cefr };
+  }
+  return { level: 0, cefr: 'A1' };
 }

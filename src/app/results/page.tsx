@@ -1,29 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  Mic,
-  Headphones,
   BookOpen,
-  Swords,
+  Headphones,
+  Mic,
+  PenTool,
   Trophy,
-  Shield,
-  AlertTriangle,
   ChevronRight,
-  Star,
-  Zap,
-  Target,
-  CheckCircle2,
-  XCircle,
-  ArrowRight,
   Loader2,
   Crown,
-  Download,
-  Mail,
 } from 'lucide-react';
 import {
   ParticleBackground,
@@ -32,983 +21,321 @@ import {
   MetallicCard,
   ImperialRankBadge,
   ProgressBar,
-  TacticalPanel,
   SectionDivider,
   ImperialButton,
   GlowingBorder,
-  EmpireCertificate,
-  CelebrationAnimation,
-  EmpireWatermark,
-  ContentProtection,
-  LegalNotice,
 } from '@/components/empire';
-import { MODULE_INFO } from '@/lib/constants';
 import {
   IMPERIAL_RANKS,
   IMPERIAL_RANK_DESCRIPTIONS,
+  TOEFL_LEVEL_THRESHOLDS,
+  getSectionLevel,
+  getTotalLevel,
 } from '@/lib/types';
-import type { ImperialLevel, LevelAssignment } from '@/lib/types';
+import type { ImperialLevel } from '@/lib/types';
 import { getLevelColor } from '@/services/scoring-service';
 
 // ─── Types ────────────────────────────────────────────────
 
-interface ResultsData {
-  speakingScore: number;
-  listeningScore: number;
-  vocabularyScore: number;
-  grammarScore: number;
-  levelAssignment: LevelAssignment;
+interface SectionResult {
+  section: string;
+  label: string;
+  icon: typeof BookOpen;
+  score: number; // 0-30
+  color: string;
+  completed: boolean;
 }
 
-// ─── Mock Data ────────────────────────────────────────────
+// ─── Section Config ───────────────────────────────────────
 
-const mockResults: ResultsData = {
-  speakingScore: 62,
-  listeningScore: 71,
-  vocabularyScore: 1500,
-  grammarScore: 68,
-  levelAssignment: {
-    speakingLevel: 2 as ImperialLevel,
-    listeningLevel: 2 as ImperialLevel,
-    vocabularyLevel: 2 as ImperialLevel,
-    grammarLevel: 2 as ImperialLevel,
-    finalLevel: 2 as ImperialLevel,
-    isFlagged: false,
-    strengths: ['Speaking', 'Listening', 'Vocabulary', 'Grammar'],
-    weaknesses: [],
-    recommendedPath:
-      'Embark on the Warrior Path: Master advanced grammar (conditionals, passive voice), push vocabulary to 3000+ words, train with fast listening, and develop natural speaking rhythm.',
-  },
-};
-
-// ─── Enhanced Particle Background ─────────────────────────
-
-function EnhancedParticleBackground() {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 50 }, (_, i) => ({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 3 + 1,
-        duration: Math.random() * 20 + 15,
-        delay: Math.random() * 20,
-        opacity: Math.random() * 0.4 + 0.15,
-      })),
-    []
-  );
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute rounded-full bg-[#c9a84c]"
-          style={{
-            left: `${p.x}%`,
-            bottom: '-10px',
-            width: `${p.size}px`,
-            height: `${p.size}px`,
-            opacity: 0,
-            animation: `float ${p.duration}s ${p.delay}s linear infinite`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Module Config ────────────────────────────────────────
-
-const MODULE_CARDS = [
-  { key: 'speaking' as const, icon: Mic, label: 'Speaking', empireTitle: MODULE_INFO.speaking.empireTitle, scoreKey: 'speakingScore' as const, levelKey: 'speakingLevel' as const, maxScore: 100 },
-  { key: 'listening' as const, icon: Headphones, label: 'Listening', empireTitle: MODULE_INFO.listening.empireTitle, scoreKey: 'listeningScore' as const, levelKey: 'listeningLevel' as const, maxScore: 100 },
-  { key: 'vocabulary' as const, icon: BookOpen, label: 'Vocabulary', empireTitle: MODULE_INFO.vocabulary.empireTitle, scoreKey: 'vocabularyScore' as const, levelKey: 'vocabularyLevel' as const, maxScore: 5000 },
-  { key: 'grammar' as const, icon: Swords, label: 'Grammar', empireTitle: MODULE_INFO.grammar.empireTitle, scoreKey: 'grammarScore' as const, levelKey: 'grammarLevel' as const, maxScore: 100 },
+const SECTIONS = [
+  { key: 'reading', label: 'Reading', icon: BookOpen, color: '#c9a84c' },
+  { key: 'listening', label: 'Listening', icon: Headphones, color: '#cd7f32' },
+  { key: 'speaking', label: 'Speaking', icon: Mic, color: '#ff6b35' },
+  { key: 'writing', label: 'Writing', icon: PenTool, color: '#9b59b6' },
 ];
 
-const WEAKNESS_SUGGESTIONS: Record<string, string> = {
-  Speaking: 'Practice read-aloud exercises daily and record yourself for self-review.',
-  Listening: 'Train with slower audio first, then gradually increase speed.',
-  Vocabulary: 'Use spaced repetition flashcards and read extensively.',
-  Grammar: 'Focus on one grammar topic at a time with targeted exercises.',
-};
 
-// ─── Animation Variants ──────────────────────────────────
-
-const ceremonyVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 1.5, ease: 'easeOut' },
-  },
-};
-
-const rankRevealVariants = {
-  hidden: { scale: 0, opacity: 0 },
-  visible: {
-    scale: 1,
-    opacity: 1,
-    transition: { type: 'spring', stiffness: 200, damping: 15, delay: 1.2 },
-  },
-};
-
-const rankNameVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.8, delay: 1.8, ease: 'easeOut' },
-  },
-};
-
-const moduleCardVariants = {
-  hidden: { opacity: 0, y: 40 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, delay: 2.5 + i * 0.15, ease: 'easeOut' },
-  }),
-};
-
-const strengthsVariants = {
-  hidden: { opacity: 0, x: -60 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.7, delay: 3.5, ease: 'easeOut' },
-  },
-};
-
-const weaknessesVariants = {
-  hidden: { opacity: 0, x: 60 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.7, delay: 3.7, ease: 'easeOut' },
-  },
-};
-
-const pathVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, delay: 4.2, ease: 'easeOut' },
-  },
-};
-
-const flagVariants = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.5, delay: 4.0, ease: 'easeOut' },
-  },
-};
-
-const actionsVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, delay: 4.8, ease: 'easeOut' },
-  },
-};
-
-// ─── Loading Fallback ──────────────────────────────────────
-
-function ResultsLoading() {
-  return (
-    <div className="min-h-screen flex flex-col empire-bg">
-      <ParticleBackground />
-      <Navbar />
-      <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center space-y-6"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          >
-            <Crown className="w-16 h-16 text-[#c9a84c] mx-auto" />
-          </motion.div>
-          <div>
-            <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mb-2">
-              Consulting the Imperial Archives
-            </h2>
-            <p className="text-[#8b7355] font-[family-name:var(--font-sans)]">
-              Analyzing your trial results...
-            </p>
-          </div>
-          <Loader2 className="w-6 h-6 text-[#c9a84c] mx-auto animate-spin" />
-        </motion.div>
-      </main>
-      <div className="mt-auto">
-        <Footer />
-      </div>
-    </div>
-  );
-}
-
-// ─── Page Component ───────────────────────────────────────
+// ─── Component ────────────────────────────────────────────
 
 function ResultsContent() {
-  const searchParams = useSearchParams();
-  const assessmentId = searchParams.get('assessmentId');
   const { data: session } = useSession();
-
-  const [results, setResults] = useState<ResultsData | null>(null);
+  const [sectionResults, setSectionResults] = useState<SectionResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showCeremony, setShowCeremony] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
-  const [showCertificate, setShowCertificate] = useState(false);
 
-  // Load results from user's actual assessment data
   useEffect(() => {
-    let cancelled = false;
-
     async function loadResults() {
       try {
-        // Fetch real scores from dashboard API
-        const dashRes = await fetch('/api/dashboard', { credentials: 'include' });
-        if (!dashRes.ok) throw new Error('Not authenticated');
-        
-        const dashData = await dashRes.json();
-        const mp = dashData.moduleProgress || {};
-        
-        // Check if at least one module is completed
-        const hasAnyScore = Object.values(mp).some((m: { score: number | null }) => m.score !== null);
-        
-        if (!hasAnyScore) {
-          if (!cancelled) {
-            setError('No completed trials yet. Complete at least one trial to see results.');
-            setResults(null);
-            setLoading(false);
+        const res = await fetch('/api/dashboard', { credentials: 'include' });
+        if (!res.ok) throw new Error('Not authenticated');
+        const data = await res.json();
+        const mp = data.moduleProgress || {};
+
+        // Map module progress to section scores (0-30 scale)
+        const results: SectionResult[] = SECTIONS.map(s => {
+          const moduleData = mp[s.key];
+          let score = 0;
+          let completed = false;
+
+          if (moduleData?.score != null) {
+            completed = true;
+            // Convert percentage-based scores (0-100) to TOEFL section scores (0-30)
+            if (s.key === 'reading' || s.key === 'writing') {
+              // These already come as 0-30 from our new trials
+              score = Math.min(30, Math.round(moduleData.score));
+            } else {
+              // Listening/Speaking come as 0-100 from old system
+              score = Math.min(30, Math.round((moduleData.score / 100) * 30));
+            }
           }
-          return;
-        }
 
-        // Build scores from real data
-        const speakingScore = mp.speaking?.score ?? 0;
-        const listeningScore = mp.listening?.score ?? 0;
-        const vocabularyScore = dashData.stats?.vocabularyEstimate ?? (mp.vocabulary?.score ? mp.vocabulary.score * 50 : 0);
-        const grammarScore = mp.grammar?.score ?? 0;
-
-        // Calculate level from real scores
-        const calcRes = await fetch('/api/assessment/calculate-level', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ speakingScore, listeningScore, vocabularyScore, grammarScore }),
+          return { section: s.key, label: s.label, icon: s.icon, score, color: s.color, completed };
         });
 
-        if (!calcRes.ok) throw new Error('Level calculation failed');
-        const calcData = await calcRes.json();
+        setSectionResults(results);
 
-        if (!cancelled) {
-          setResults({
-            speakingScore,
-            listeningScore,
-            vocabularyScore,
-            grammarScore,
-            levelAssignment: calcData.result,
-          });
+        const hasAny = results.some(r => r.completed);
+        if (!hasAny) {
+          setError('No completed trials yet. Complete at least one trial to see results.');
         }
-      } catch (err) {
-        if (!cancelled) {
-          setError('No completed trials yet. Complete all 4 trials to see your full results.');
-          setResults(null);
-        }
+      } catch {
+        setError('Complete at least one trial to see your results here.');
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     }
-
     loadResults();
-    return () => { cancelled = true; };
   }, []);
 
-  // Trigger ceremony animation after results are loaded
-  useEffect(() => {
-    if (results) {
-      // Show celebration animation first
-      setShowCelebration(true);
-    }
-  }, [results]);
+  // Calculate totals
+  const completedSections = sectionResults.filter(r => r.completed);
+  const totalScore = sectionResults.reduce((sum, r) => sum + r.score, 0);
+  const { level: imperialLevel, cefr } = getTotalLevel(totalScore);
+  const allComplete = completedSections.length === 4;
 
-  // Send results email after celebration completes
-  const handleCelebrationComplete = useCallback(() => {
-    setShowCelebration(false);
-    setShowCeremony(true);
-
-    // Auto-send email if user is logged in
-    if (session?.user && results && !emailSent) {
-      setEmailSending(true);
-      fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentName: session.user.name || session.user.email || 'Student',
-          studentEmail: session.user.email,
-          speakingScore: results.speakingScore,
-          listeningScore: results.listeningScore,
-          vocabularyScore: results.vocabularyScore,
-          grammarScore: results.grammarScore,
-          finalLevel: results.levelAssignment.finalLevel,
-          completionTimestamp: new Date().toISOString(),
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          setEmailSent(true);
-          if (!data.success) {
-            console.error('[email_send_status] Email delivery issue:', data.error || data.details);
-          } else {
-            console.log('[email_send_status] Emails sent — Admin:', data.adminSent, 'Student:', data.studentSent);
-          }
-        })
-        .catch((err) => {
-          console.error('[email_send_status] Email request failed:', err);
-        })
-        .finally(() => setEmailSending(false));
-    }
-  }, [session, results, emailSent]);
+  // ─── Loading ─────────────────────────────────────────────
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col empire-bg">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
         <ParticleBackground />
         <Navbar />
-        <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center space-y-6"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            >
-              <Crown className="w-16 h-16 text-[#c9a84c] mx-auto" />
-            </motion.div>
-            <div>
-              <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mb-2">
-                Consulting the Imperial Archives
-              </h2>
-              <p className="text-[#8b7355] font-[family-name:var(--font-sans)]">
-                Analyzing your trial results...
-              </p>
-            </div>
-            <Loader2 className="w-6 h-6 text-[#c9a84c] mx-auto animate-spin" />
+        <main className="flex-1 flex items-center justify-center relative z-10">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-4">
+            <Crown className="w-12 h-12 text-[#c9a84c] mx-auto animate-pulse" />
+            <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-lg">Loading Results...</p>
+            <Loader2 className="w-5 h-5 text-[#c9a84c] mx-auto animate-spin" />
           </motion.div>
         </main>
-        <div className="mt-auto">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
 
-  if (!results) {
+  // ─── Error / No Results ──────────────────────────────────
+
+  if (error && completedSections.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col empire-bg">
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
         <ParticleBackground />
         <Navbar />
-        <main className="flex-1 relative z-10 pt-24 pb-12 px-4 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center relative z-10 px-4">
           <MetallicCard className="max-w-md w-full p-8 text-center" hover={false}>
-            <div className="text-4xl mb-4">⚔️</div>
-            <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] mb-2">
-              No Results Yet
-            </h2>
-            <p className="font-arabic text-[#8b7355] text-sm mb-3" dir="rtl">لم تكمل أي اختبار بعد</p>
-            <p className="text-[#8b7355] text-sm mb-6">
-              {error || 'Complete the Four Trials to receive your Imperial Rank and full assessment results.'}
-            </p>
+            <Trophy className="w-12 h-12 text-[#8b7355] mx-auto mb-4 opacity-50" />
+            <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] mb-3">No Results Yet</h2>
+            <p className="text-[#8b7355] text-sm mb-6">{error}</p>
             <Link href="/assessment">
-              <ImperialButton variant="primary">Go to Trials / اذهب للاختبارات</ImperialButton>
+              <ImperialButton variant="primary" size="md" className="gap-2">
+                <span>Go to Assessment</span>
+                <ChevronRight className="w-4 h-4" />
+              </ImperialButton>
             </Link>
           </MetallicCard>
         </main>
-        <div className="mt-auto"><Footer /></div>
+        <Footer />
       </div>
     );
   }
 
-  const { levelAssignment: assignment } = results;
-  const finalColor = getLevelColor(assignment.finalLevel);
 
-  // Celebration Animation Overlay
-  const celebrationOverlay = showCelebration && results ? (
-    <CelebrationAnimation
-      rankName={IMPERIAL_RANKS[assignment.finalLevel]}
-      finalLevel={assignment.finalLevel}
-      onComplete={handleCelebrationComplete}
-    />
-  ) : null;
+  // ─── Results Display ─────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col empire-bg protected-content">
-      <ContentProtection
-        detectDevTools={true}
-        blockShortcuts={true}
-        blockContextMenu={true}
-        blockPrint={false}
-        detectVisibilityChange={false}
-      />
-      <EnhancedParticleBackground />
-      <EmpireWatermark context="Imperial Decree — Results" />
+    <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <ParticleBackground />
       <Navbar />
-
-      {/* Celebration Animation Overlay */}
-      {celebrationOverlay}
-
-      <main className="flex-1 relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        <AnimatePresence mode="wait">
-          {showCeremony && (
-            <motion.div
-              key="ceremony"
-              initial="hidden"
-              animate="visible"
-              className="space-y-12"
-            >
-              {/* ═══ Ceremony Header ═══ */}
-              <motion.section variants={ceremonyVariants} className="text-center space-y-2">
-                <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-sm tracking-[0.3em] uppercase">
-                  The Imperial Decree
-                </p>
-                <motion.h1
-                  className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl lg:text-7xl font-bold gold-shimmer leading-tight"
-                  animate={{
-                    textShadow: [
-                      '0 0 20px rgba(201,168,76,0.3), 0 0 40px rgba(201,168,76,0.1)',
-                      '0 0 40px rgba(201,168,76,0.6), 0 0 80px rgba(201,168,76,0.2)',
-                      '0 0 20px rgba(201,168,76,0.3), 0 0 40px rgba(201,168,76,0.1)',
-                    ],
-                  }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  The Empire Has Spoken
-                </motion.h1>
-                <p className="text-[#8b7355] text-base font-[family-name:var(--font-sans)] italic max-w-lg mx-auto">
-                  Through fire and trial, your worth has been measured. Behold your rank.
-                </p>
-              </motion.section>
-
-              {/* ═══ Rank Reveal ═══ */}
-              <motion.section className="flex flex-col items-center gap-4 py-8">
-                {/* Glow burst behind badge */}
-                <motion.div
-                  className="absolute"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{
-                    scale: [0, 2, 1.5],
-                    opacity: [0, 0.6, 0],
-                  }}
-                  transition={{ duration: 1.5, delay: 1.0 }}
-                  style={{
-                    width: 200,
-                    height: 200,
-                    borderRadius: '50%',
-                    background: `radial-gradient(circle, ${finalColor}60, transparent 70%)`,
-                    pointerEvents: 'none',
-                  }}
-                />
-
-                {/* Rank badge */}
-                <motion.div variants={rankRevealVariants} className="relative">
-                  <motion.div
-                    animate={{
-                      boxShadow: [
-                        `0 0 20px ${finalColor}30, 0 0 40px ${finalColor}15`,
-                        `0 0 40px ${finalColor}60, 0 0 80px ${finalColor}30`,
-                        `0 0 20px ${finalColor}30, 0 0 40px ${finalColor}15`,
-                      ],
-                    }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                    className="rounded-full p-4"
-                  >
-                    <ImperialRankBadge
-                      level={assignment.finalLevel}
-                      size="lg"
-                      showLabel={false}
-                    />
-                  </motion.div>
-                </motion.div>
-
-                {/* Rank name */}
-                <motion.div variants={rankNameVariants} className="text-center space-y-2">
-                  <h2
-                    className="font-[family-name:var(--font-heading)] text-3xl sm:text-4xl lg:text-5xl font-bold"
-                    style={{ color: finalColor }}
-                  >
-                    {IMPERIAL_RANKS[assignment.finalLevel]}
-                  </h2>
-                  <p className="text-[#8b7355] text-sm sm:text-base max-w-md mx-auto font-[family-name:var(--font-sans)] italic">
-                    {IMPERIAL_RANK_DESCRIPTIONS[assignment.finalLevel]}
-                  </p>
-                </motion.div>
-              </motion.section>
-
-              <SectionDivider />
-
-              {/* ═══ Module Breakdown ═══ */}
-              <motion.section className="space-y-6">
-                <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl text-center">
-                  The Four Trials — Performance Breakdown
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {MODULE_CARDS.map((mod, i) => {
-                    const score = results[mod.scoreKey];
-                    const level = assignment[mod.levelKey];
-                    const levelColor = getLevelColor(level);
-                    const isStrength = assignment.strengths.includes(mod.label);
-                    const isWeakness = assignment.weaknesses.includes(mod.label);
-                    const displayScore = mod.maxScore === 5000
-                      ? `~${score.toLocaleString()} words`
-                      : `${score}%`;
-                    const progressValue = mod.maxScore === 5000
-                      ? Math.min((score / 5000) * 100, 100)
-                      : score;
-
-                    return (
-                      <motion.div
-                        key={mod.key}
-                        custom={i}
-                        variants={moduleCardVariants}
-                      >
-                        <MetallicCard className="p-5 h-full flex flex-col">
-                          {/* Module header */}
-                          <div className="flex items-center gap-3 mb-4">
-                            <div
-                              className="w-10 h-10 rounded-full border flex items-center justify-center"
-                              style={{
-                                borderColor: `${levelColor}50`,
-                                backgroundColor: `${levelColor}10`,
-                              }}
-                            >
-                              <mod.icon className="w-5 h-5" style={{ color: levelColor }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-[family-name:var(--font-heading)] text-[#e8e0d0] text-sm font-semibold truncate">
-                                {mod.label}
-                              </h3>
-                              <p className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] truncate">
-                                {mod.empireTitle}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Score */}
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">Score</span>
-                              <span
-                                className="font-[family-name:var(--font-heading)] text-sm font-bold"
-                                style={{ color: levelColor }}
-                              >
-                                {displayScore}
-                              </span>
-                            </div>
-                            <ProgressBar
-                              value={progressValue}
-                              max={100}
-                              showPercentage={false}
-                              color={levelColor}
-                              size="sm"
-                            />
-                          </div>
-
-                          {/* Level badge */}
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">Imperial Level</span>
-                            <div className="flex items-center gap-2">
-                              <ImperialRankBadge level={level} size="sm" />
-                            </div>
-                          </div>
-
-                          {/* Assessment label */}
-                          <div className="mt-auto pt-3 border-t border-[rgba(201,168,76,0.1)]">
-                            {isStrength ? (
-                              <div className="flex items-center gap-1.5">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-[#c9a84c]" />
-                                <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)]">Strength</span>
-                              </div>
-                            ) : isWeakness ? (
-                              <div className="flex items-center gap-1.5">
-                                <XCircle className="w-3.5 h-3.5 text-[#8b7355]" />
-                                <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">Needs Work</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                <Star className="w-3.5 h-3.5 text-[#8b7355]" />
-                                <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)]">On Track</span>
-                              </div>
-                            )}
-                          </div>
-                        </MetallicCard>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </motion.section>
-
-              <SectionDivider />
-
-              {/* ═══ Strengths & Weaknesses ═══ */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Strengths */}
-                <motion.section variants={strengthsVariants} className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-[#c9a84c]" />
-                    <h2 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-2xl">
-                      Strengths
-                    </h2>
-                  </div>
-                  <TacticalPanel accentSide="left" accentColor="#c9a84c">
-                    {assignment.strengths.length > 0 ? (
-                      <div className="space-y-3">
-                        {assignment.strengths.map((strength, i) => {
-                          const mod = MODULE_CARDS.find((m) => m.label === strength);
-                          const level = mod ? assignment[mod.levelKey] : assignment.finalLevel;
-                          return (
-                            <motion.div
-                              key={strength}
-                              initial={{ opacity: 0, x: -15 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 3.8 + i * 0.1 }}
-                              className="flex items-start gap-3 py-2 border-b border-[rgba(201,168,76,0.08)] last:border-b-0"
-                            >
-                              <div className="mt-0.5">
-                                <CheckCircle2 className="w-4 h-4 text-[#c9a84c]" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[#e8e0d0] text-sm font-[family-name:var(--font-heading)]">
-                                    {strength}
-                                  </span>
-                                  <span
-                                    className="text-[10px] font-[family-name:var(--font-heading)] px-2 py-0.5 rounded-full border"
-                                    style={{
-                                      color: getLevelColor(level),
-                                      borderColor: `${getLevelColor(level)}30`,
-                                      backgroundColor: `${getLevelColor(level)}10`,
-                                    }}
-                                  >
-                                    {IMPERIAL_RANKS[level]}
-                                  </span>
-                                </div>
-                                <p className="text-[#8b7355] text-xs mt-0.5 font-[family-name:var(--font-sans)]">
-                                  Performing at or above your overall level
-                                </p>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[#8b7355] text-sm italic font-[family-name:var(--font-sans)]">
-                        Continue your training to develop your strengths.
-                      </p>
-                    )}
-                  </TacticalPanel>
-                </motion.section>
-
-                {/* Weaknesses */}
-                <motion.section variants={weaknessesVariants} className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-[#8b7355]" />
-                    <h2 className="font-[family-name:var(--font-heading)] text-[#8b7355] text-2xl">
-                      Areas for Improvement
-                    </h2>
-                  </div>
-                  <TacticalPanel accentSide="left" accentColor="#8b7355">
-                    {assignment.weaknesses.length > 0 ? (
-                      <div className="space-y-3">
-                        {assignment.weaknesses.map((weakness, i) => {
-                          const mod = MODULE_CARDS.find((m) => m.label === weakness);
-                          const level = mod ? assignment[mod.levelKey] : 0;
-                          return (
-                            <motion.div
-                              key={weakness}
-                              initial={{ opacity: 0, x: 15 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 4.0 + i * 0.1 }}
-                              className="flex items-start gap-3 py-2 border-b border-[rgba(201,168,76,0.08)] last:border-b-0"
-                            >
-                              <div className="mt-0.5">
-                                <XCircle className="w-4 h-4 text-[#8b7355]" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[#e8e0d0] text-sm font-[family-name:var(--font-heading)]">
-                                    {weakness}
-                                  </span>
-                                  <span
-                                    className="text-[10px] font-[family-name:var(--font-heading)] px-2 py-0.5 rounded-full border"
-                                    style={{
-                                      color: getLevelColor(level),
-                                      borderColor: `${getLevelColor(level)}30`,
-                                      backgroundColor: `${getLevelColor(level)}10`,
-                                    }}
-                                  >
-                                    {IMPERIAL_RANKS[level]}
-                                  </span>
-                                </div>
-                                <p className="text-[#8b7355] text-xs mt-0.5 font-[family-name:var(--font-sans)]">
-                                  {WEAKNESS_SUGGESTIONS[weakness] || 'Focus additional practice on this area.'}
-                                </p>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3 py-2">
-                        <CheckCircle2 className="w-5 h-5 text-[#c9a84c]" />
-                        <div>
-                          <p className="text-[#c9a84c] text-sm font-[family-name:var(--font-heading)]">
-                            No Weaknesses Detected
-                          </p>
-                          <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)]">
-                            All modules performing at or above your Imperial Level.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </TacticalPanel>
-                </motion.section>
-              </div>
-
-              <SectionDivider />
-
-              {/* ═══ Flag Notice ═══ */}
-              {assignment.isFlagged && (
-                <motion.section variants={flagVariants}>
-                  <GlowingBorder color="fire" intensity="high" className="rounded-lg">
-                    <MetallicCard hover={false} glowOnHover={false} className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full border-2 border-[#ff6b35] flex items-center justify-center bg-[rgba(255,107,53,0.1)] shrink-0">
-                          <AlertTriangle className="w-6 h-6 text-[#ff6b35]" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-[family-name:var(--font-heading)] text-[#ff6b35] text-lg font-bold mb-1">
-                            Imperial Review Required
-                          </h3>
-                          <p className="text-[#e8e0d0] text-sm font-[family-name:var(--font-sans)] mb-2">
-                            Your assessment results show significant variation across modules. An Imperial instructor will review your performance.
-                          </p>
-                          {assignment.flagReason && (
-                            <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)] italic border-l-2 border-[rgba(255,107,53,0.3)] pl-3">
-                              {assignment.flagReason}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </MetallicCard>
-                  </GlowingBorder>
-                </motion.section>
-              )}
-
-              {/* ═══ Recommended Path ═══ */}
-              <motion.section variants={pathVariants} className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-[#cd7f32]" />
-                  <h2 className="font-[family-name:var(--font-heading)] text-[#cd7f32] text-2xl">
-                    Your Imperial Training Path
-                  </h2>
-                </div>
-                <TacticalPanel accentSide="left" accentColor={finalColor}>
-                  <div className="space-y-4">
-                    {/* Rank & Path Name */}
-                    <div className="flex items-center gap-3">
-                      <ImperialRankBadge level={assignment.finalLevel} size="sm" />
-                      <div>
-                        <p className="font-[family-name:var(--font-heading)] text-sm font-semibold" style={{ color: finalColor }}>
-                          {IMPERIAL_RANKS[assignment.finalLevel]} — {assignment.finalLevel === 0 ? 'Foundation' : assignment.finalLevel === 1 ? 'Initiate' : assignment.finalLevel === 2 ? 'Warrior' : 'Champion'} Path
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-[rgba(201,168,76,0.1)]" />
-
-                    {/* Path Description */}
-                    <p className="text-[#e8e0d0] text-sm font-[family-name:var(--font-sans)] leading-relaxed">
-                      {assignment.recommendedPath}
-                    </p>
-
-                    <div className="h-px bg-[rgba(201,168,76,0.1)]" />
-
-                    {/* Next Milestone */}
-                    {assignment.finalLevel < 3 && (
-                      <div className="flex items-start gap-3">
-                        <ArrowRight className="w-4 h-4 text-[#cd7f32] mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-[#cd7f32] text-sm font-[family-name:var(--font-heading)]">
-                            Next Rank: {IMPERIAL_RANKS[(assignment.finalLevel + 1) as ImperialLevel]}
-                          </p>
-                          <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)] mt-0.5">
-                            Focus on your weaker modules to advance to the next Imperial Rank.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {assignment.finalLevel === 3 && (
-                      <div className="flex items-start gap-3">
-                        <Crown className="w-4 h-4 text-[#ff6b35] mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-[#ff6b35] text-sm font-[family-name:var(--font-heading)]">
-                            Maximum Rank Achieved
-                          </p>
-                          <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)] mt-0.5">
-                            You stand among the Empire&apos;s finest. Continue to refine your mastery.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </TacticalPanel>
-              </motion.section>
-
-              <SectionDivider />
-
-              {/* ═══ Action Buttons ═══ */}
-              <motion.section
-                variants={actionsVariants}
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 pb-4"
-              >
-                <Link href="/dashboard">
-                  <ImperialButton variant="outline" size="lg">
-                    <span className="flex items-center gap-2">
-                      <Shield className="w-5 h-5" />
-                      Return to Dashboard
-                    </span>
-                  </ImperialButton>
-                </Link>
-                <Link href="/assessment">
-                  <ImperialButton variant="primary" size="lg">
-                    <span className="flex items-center gap-2">
-                      <Swords className="w-5 h-5" />
-                      Begin Training
-                    </span>
-                  </ImperialButton>
-                </Link>
-              </motion.section>
-
-              {/* ═══ Load from Assessment Button ═══ */}
-              {!assessmentId && (
-                <motion.div
-                  variants={actionsVariants}
-                  className="text-center pt-2 pb-4"
-                >
-                  <p className="text-[#8b7355]/60 text-xs font-[family-name:var(--font-sans)] mb-3">
-                    Viewing demo results
-                  </p>
-                  <Link href="/results?assessmentId=demo">
-                    <ImperialButton variant="ghost" size="sm">
-                      <span className="flex items-center gap-1.5">
-                        <ChevronRight className="w-4 h-4" />
-                        Load from Assessment
-                      </span>
-                    </ImperialButton>
-                  </Link>
-                </motion.div>
-              )}
-
-              <SectionDivider />
-
-              {/* ═══ Empire Certificate ═══ */}
-              <motion.section
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="space-y-6"
-              >
-                <div className="text-center mb-4">
-                  <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c] text-glow mb-3">
-                    YOUR IMPERIAL CERTIFICATE
-                  </h2>
-                  <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm italic max-w-md mx-auto">
-                    A testament to your achievement in the Four Trials. Download and share your imperial recognition.
-                  </p>
-                </div>
-
-                <div className="max-w-3xl mx-auto">
-                  <EmpireCertificate
-                    studentName={session?.user?.name || session?.user?.email || 'Warrior'}
-                    rankName={IMPERIAL_RANKS[assignment.finalLevel]}
-                    finalLevel={assignment.finalLevel}
-                    speakingScore={results.speakingScore}
-                    listeningScore={results.listeningScore}
-                    vocabularyScore={results.vocabularyScore}
-                    grammarScore={results.grammarScore}
-                    studentEmail={session?.user?.email || undefined}
-                  />
-                </div>
-              </motion.section>
-
-              {/* ═══ Email Status ═══ */}
-              {session?.user && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  className="text-center py-4"
-                >
-                  {emailSending ? (
-                    <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider flex items-center justify-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Sending your results to the Imperial Archives...
-                    </p>
-                  ) : emailSent ? (
-                    <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-xs tracking-wider flex items-center justify-center gap-2">
-                      <Mail className="w-3 h-3" />
-                      Results have been sent to your email
-                    </p>
-                  ) : null}
-                </motion.div>
-              )}
+      <main className="flex-1 pt-20 pb-12 relative z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          {/* Hero: Total Score */}
+          <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.3 }}>
+              <ImperialRankBadge level={imperialLevel} size="lg" />
             </motion.div>
-          )}
-        </AnimatePresence>
+            <motion.h1
+              className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl font-bold text-[#c9a84c] mt-4 mb-1"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+            >
+              {IMPERIAL_RANKS[imperialLevel]}
+            </motion.h1>
+            <motion.p
+              className="text-[#8b7355] text-sm mb-4"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+            >
+              {IMPERIAL_RANK_DESCRIPTIONS[imperialLevel]}
+            </motion.p>
 
-        {/* Error Notice */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-6 right-6 z-50 max-w-sm"
-          >
-            <MetallicCard hover={false} glowOnHover={false} className="p-4 border-[rgba(255,107,53,0.3)]">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-4 h-4 text-[#ff6b35] shrink-0 mt-0.5" />
-                <p className="text-[#8b7355] text-xs font-[family-name:var(--font-sans)]">{error}</p>
-              </div>
-            </MetallicCard>
+            {/* TOEFL Score Display */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
+              <GlowingBorder color="gold" intensity="high">
+                <MetallicCard className="p-6 sm:p-8 inline-block" hover={false}>
+                  <div className="flex items-center gap-8 justify-center">
+                    <div className="text-center">
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs uppercase tracking-widest mb-1">Imperial Score</p>
+                      <p className="font-[family-name:var(--font-heading)] text-5xl sm:text-6xl font-bold text-[#c9a84c]">{totalScore}</p>
+                      <p className="text-[#8b7355] text-xs mt-1">out of 120</p>
+                    </div>
+                    <div className="w-px h-16 bg-[rgba(201,168,76,0.2)]" />
+                    <div className="text-center">
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs uppercase tracking-widest mb-1">CEFR Level</p>
+                      <p className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[#cd7f32]">{cefr}</p>
+                      <p className="text-[#8b7355] text-xs mt-1">equivalent</p>
+                    </div>
+                  </div>
+                  {!allComplete && (
+                    <p className="text-[#ff6b35] text-xs text-center mt-4 font-[family-name:var(--font-heading)]">
+                      ⚠ {4 - completedSections.length} section{4 - completedSections.length > 1 ? 's' : ''} not yet completed — score is partial
+                    </p>
+                  )}
+                </MetallicCard>
+              </GlowingBorder>
+            </motion.div>
           </motion.div>
-        )}
-      </main>
 
-      <div className="mt-auto">
-        <LegalNotice variant="footer" />
-        <Footer />
-      </div>
+          <SectionDivider />
+
+          {/* Section Breakdown */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.3 }}>
+            <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] text-center mb-6 tracking-wide">
+              Section Scores
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {sectionResults.map((result, idx) => {
+                const Icon = result.icon;
+                const sectionLevel = getSectionLevel(result.score);
+                return (
+                  <motion.div
+                    key={result.section}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.5 + idx * 0.15 }}
+                  >
+                    <MetallicCard className="p-5" hover={false}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full border flex items-center justify-center" style={{ borderColor: result.color, backgroundColor: `${result.color}15` }}>
+                            <Icon className="w-5 h-5" style={{ color: result.color }} />
+                          </div>
+                          <div>
+                            <h3 className="font-[family-name:var(--font-heading)] text-sm text-[#e8e8e8]">{result.label}</h3>
+                            <p className="font-[family-name:var(--font-heading)] text-[10px] text-[#8b7355] uppercase tracking-wider">
+                              {result.completed ? IMPERIAL_RANKS[sectionLevel] : 'Not Completed'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {result.completed ? (
+                            <p className="font-[family-name:var(--font-heading)] text-2xl font-bold" style={{ color: result.color }}>{result.score}</p>
+                          ) : (
+                            <p className="font-[family-name:var(--font-heading)] text-lg text-[#555]">—</p>
+                          )}
+                          <p className="text-[#8b7355] text-[10px]">/ 30</p>
+                        </div>
+                      </div>
+                      {result.completed && (
+                        <ProgressBar value={result.score} max={30} showPercentage={false} color={result.color} size="sm" />
+                      )}
+                      {!result.completed && (
+                        <Link href={`/assessment/${result.section}`} className="block mt-2">
+                          <span className="text-[#c9a84c] text-xs font-[family-name:var(--font-heading)] hover:underline">
+                            Take this trial →
+                          </span>
+                        </Link>
+                      )}
+                    </MetallicCard>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          <SectionDivider />
+
+          {/* Level Thresholds Reference */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.2 }}>
+            <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] text-center mb-4 tracking-wide">
+              Imperial Score Scale
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {TOEFL_LEVEL_THRESHOLDS.map((t, idx) => {
+                const isActive = t.level === imperialLevel;
+                const rankColors = ['#8b7355', '#cd7f32', '#c9a84c', '#ff6b35'];
+                return (
+                  <MetallicCard key={idx} className={`p-3 text-center ${isActive ? 'ring-1 ring-[#c9a84c]' : ''}`} hover={false}>
+                    <p className="font-[family-name:var(--font-heading)] text-xs font-bold" style={{ color: rankColors[idx] }}>
+                      {IMPERIAL_RANKS[t.level]}
+                    </p>
+                    <p className="text-[#8b7355] text-[10px] mt-0.5">{t.min}–{t.max} pts</p>
+                    <p className="text-[#8b7355] text-[10px]">{t.cefr}</p>
+                    {isActive && <p className="text-[#c9a84c] text-[10px] mt-1 font-bold">← You</p>}
+                  </MetallicCard>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          <SectionDivider />
+
+          {/* Actions */}
+          <motion.div
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.5 }}
+          >
+            {!allComplete && (
+              <Link href="/assessment">
+                <ImperialButton variant="primary" size="lg" className="gap-2">
+                  <span>Complete Remaining Trials</span>
+                  <ChevronRight className="w-5 h-5" />
+                </ImperialButton>
+              </Link>
+            )}
+            <Link href="/dashboard">
+              <ImperialButton variant="outline" size="lg" className="gap-2">
+                <span>View Dashboard</span>
+              </ImperialButton>
+            </Link>
+          </motion.div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }
 
-// ─── Default Export with Suspense Boundary ────────────────
-// useSearchParams() requires a Suspense boundary in Next.js 14+
+// ─── Export with Suspense ──────────────────────────────────
+
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<ResultsLoading />}>
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center relative z-10">
+          <Loader2 className="w-8 h-8 text-[#c9a84c] animate-spin" />
+        </main>
+        <Footer />
+      </div>
+    }>
       <ResultsContent />
     </Suspense>
   );

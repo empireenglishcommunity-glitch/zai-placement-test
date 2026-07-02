@@ -19,15 +19,13 @@ import {
   EmpireWatermark,
   LegalNotice,
 } from '@/components/empire';
-import { MODULE_INFO } from '@/lib/constants';
-import type { ModuleType } from '@/lib/types';
 import Link from 'next/link';
-import { Swords, Headphones, BookOpen, Shield, Mic, Volume2, Lock, CheckCircle, ChevronRight } from 'lucide-react';
+import { Headphones, BookOpen, Shield, Mic, Volume2, Lock, CheckCircle, ChevronRight } from 'lucide-react';
 
 // ─── Module Card Data ────────────────────────────────────────
 
 interface TrialCardData {
-  module: ModuleType;
+  module: string;
   icon: React.ElementType;
   color: string;
   status: 'available' | 'locked' | 'completed';
@@ -36,56 +34,86 @@ interface TrialCardData {
   trialDescription: string;
   arabicName: string;
   arabicDescription: string;
+  name: string;
+  empireTitle: string;
+  description: string;
+  duration: string;
+  scoreRange: string;
+  href: string;
 }
 
 const trialCards: TrialCardData[] = [
   {
-    module: 'speaking',
-    icon: Swords,
-    color: '#cd7f32',
+    module: 'reading',
+    icon: BookOpen,
+    color: '#c9a84c',
     status: 'available',
-    requiresMic: true,
+    requiresMic: false,
     requiresAudio: false,
+    name: 'Trial of Reading',
+    empireTitle: 'The Comprehension Trial',
+    description: 'Demonstrate your ability to understand written English at an academic level.',
     trialDescription:
-      'Read aloud passages of increasing difficulty. Respond spontaneously to prompts. Shadow a native speaker\u2019s rhythm and intonation. Your pronunciation, fluency, and confidence will be measured.',
-    arabicName: 'اختبار التحدث',
-    arabicDescription: 'اقرأ بصوت عالٍ، تحدث بعفوية، وكرر ما تسمعه. سيتم قياس نطقك وطلاقتك وثقتك.',
+      'Read 3 academic passages of increasing difficulty. Answer questions on main ideas, supporting details, vocabulary in context, inferences, and author\'s purpose. This is the core of English proficiency.',
+    arabicName: 'اختبار القراءة',
+    arabicDescription: 'اقرأ 3 نصوص أكاديمية وأجب عن أسئلة الفكرة الرئيسية والتفاصيل والمفردات والاستنتاج.',
+    duration: '~20 min',
+    scoreRange: '0-30',
+    href: '/assessment/reading',
   },
   {
     module: 'listening',
     icon: Headphones,
-    color: '#c9a84c',
+    color: '#cd7f32',
     status: 'available',
     requiresMic: false,
     requiresAudio: true,
+    name: 'Trial of Listening',
+    empireTitle: 'The Perception Trial',
+    description: 'Prove your ability to understand spoken English in academic contexts.',
     trialDescription:
-      'Listen to passages at three speeds — Slow March, Steady Pace, and Battle Speed. Answer questions that test literal comprehension, inference, and detail recognition.',
+      'Listen to academic lectures and conversations. Answer questions testing comprehension, inference, speaker attitude, and organizational structure. Passages increase in speed and complexity.',
     arabicName: 'اختبار الاستماع',
-    arabicDescription: 'استمع لمقاطع بثلاث سرعات وأجب عن أسئلة الفهم والاستنتاج والتفاصيل.',
+    arabicDescription: 'استمع لمحاضرات ومحادثات أكاديمية وأجب عن أسئلة الفهم والاستنتاج وموقف المتحدث.',
+    duration: '~15 min',
+    scoreRange: '0-30',
+    href: '/assessment/listening',
   },
   {
-    module: 'vocabulary',
-    icon: BookOpen,
+    module: 'speaking',
+    icon: Mic,
     color: '#ff6b35',
     status: 'available',
-    requiresMic: false,
+    requiresMic: true,
     requiresAudio: false,
+    name: 'Trial of Speaking',
+    empireTitle: 'The Oratory Trial',
+    description: 'Demonstrate your spoken English fluency, coherence, and pronunciation.',
     trialDescription:
-      'Face 40 questions across five frequency bands — from Foundation Words to Elite Words. Each correct answer reveals the true breadth of your lexical command.',
-    arabicName: 'اختبار المفردات',
-    arabicDescription: '40 سؤال عبر 5 مستويات من الكلمات. كل إجابة صحيحة تكشف مدى حصيلتك اللغوية.',
+      'Complete 4 speaking tasks: express an opinion, summarize a reading, respond to a conversation, and discuss an academic topic. Your fluency, pronunciation, and coherence are evaluated by AI.',
+    arabicName: 'اختبار التحدث',
+    arabicDescription: 'أكمل 4 مهام تحدث: عبّر عن رأيك، لخّص نصاً، رد على محادثة، وناقش موضوعاً أكاديمياً.',
+    duration: '~10 min',
+    scoreRange: '0-30',
+    href: '/assessment/speaking',
   },
   {
-    module: 'grammar',
+    module: 'writing',
     icon: Shield,
-    color: '#e74c3c',
+    color: '#9b59b6',
     status: 'available',
     requiresMic: false,
     requiresAudio: false,
+    name: 'Trial of Writing',
+    empireTitle: 'The Inscription Trial',
+    description: 'Prove your ability to express ideas clearly in written English.',
     trialDescription:
-      'Complete sentences, identify errors, and transform structures across eight grammar topics. Tenses, conditionals, passive voice — master them all.',
-    arabicName: 'اختبار القواعد',
-    arabicDescription: 'أكمل الجمل، حدد الأخطاء، وحوّل التراكيب عبر 8 مواضيع نحوية.',
+      'Complete 2 writing tasks: summarize information from a reading passage (150-225 words), then write an independent essay expressing your opinion on a topic (300+ words). Grammar, coherence, and vocabulary are evaluated.',
+    arabicName: 'اختبار الكتابة',
+    arabicDescription: 'أكمل مهمتين كتابيتين: لخّص معلومات من نص، ثم اكتب مقالاً مستقلاً يعبر عن رأيك.',
+    duration: '~20 min',
+    scoreRange: '0-30',
+    href: '/assessment/writing',
   },
 ];
 
@@ -130,7 +158,6 @@ function StatusBadge({ status }: { status: 'available' | 'locked' | 'completed' 
 // ─── Trial Card Component ────────────────────────────────────
 
 function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
-  const info = MODULE_INFO[data.module];
   const isLocked = data.status === 'locked';
   const isCompleted = data.status === 'completed';
 
@@ -159,12 +186,17 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
           >
             <data.icon className="w-7 h-7" style={{ color: data.color }} />
           </div>
-          <StatusBadge status={data.status} />
+          <div className="flex flex-col items-end gap-1.5">
+            <StatusBadge status={data.status} />
+            <span className="font-[family-name:var(--font-heading)] text-[10px] text-[#8b7355] tracking-wider">
+              {data.duration} &middot; Score: {data.scoreRange}
+            </span>
+          </div>
         </div>
 
         {/* Module Name */}
         <h3 className="font-[family-name:var(--font-heading)] text-xl sm:text-2xl font-bold text-[#e8e0d0] mb-1">
-          {info.name}
+          {data.name}
         </h3>
         <p className="font-arabic text-[#8b7355] text-sm mb-1" dir="rtl">{data.arabicName}</p>
 
@@ -173,12 +205,12 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
           className="font-[family-name:var(--font-heading)] text-sm tracking-[0.15em] uppercase mb-4"
           style={{ color: data.color }}
         >
-          {info.empireTitle}
+          {data.empireTitle}
         </span>
 
         {/* Description */}
         <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-sm leading-relaxed mb-2">
-          {info.description}
+          {data.description}
         </p>
         <p className="font-arabic text-[#8b7355] text-xs leading-relaxed mb-4" dir="rtl">
           {data.arabicDescription}
@@ -223,7 +255,7 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
               Locked
             </ImperialButton>
           ) : (
-            <Link href={`/assessment/${data.module}`} className="block">
+            <Link href={data.href} className="block">
               <GlowingBorder intensity="medium" color={data.color === '#c9a84c' ? 'gold' : data.color === '#cd7f32' ? 'bronze' : 'fire'}>
                 <ImperialButton variant="primary" size="md" className="w-full">
                   Begin Trial
@@ -246,10 +278,10 @@ export default function AssessmentPage() {
 
   // Fetch real module progress from dashboard API
   const [moduleStatus, setModuleStatus] = useState<Record<string, 'available' | 'completed'>>({
-    speaking: 'available',
+    reading: 'available',
     listening: 'available',
-    vocabulary: 'available',
-    grammar: 'available',
+    speaking: 'available',
+    writing: 'available',
   });
 
   useEffect(() => {
@@ -260,10 +292,10 @@ export default function AssessmentPage() {
         if (data?.moduleProgress) {
           const mp = data.moduleProgress;
           setModuleStatus({
-            speaking: mp.speaking?.status === 'completed' ? 'completed' : 'available',
+            reading: mp.reading?.status === 'completed' ? 'completed' : 'available',
             listening: mp.listening?.status === 'completed' ? 'completed' : 'available',
-            vocabulary: mp.vocabulary?.status === 'completed' ? 'completed' : 'available',
-            grammar: mp.grammar?.status === 'completed' ? 'completed' : 'available',
+            speaking: mp.speaking?.status === 'completed' ? 'completed' : 'available',
+            writing: mp.writing?.status === 'completed' ? 'completed' : 'available',
           });
         }
       })
@@ -368,13 +400,32 @@ export default function AssessmentPage() {
             أثبت قدرتك. احصل على رتبتك الإمبراطورية.
           </p>
           <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg md:text-xl italic max-w-2xl mx-auto mb-4">
-            Every recruit must face the Four Trials. Each trial tests a different aspect
-            of your command of the English language. Complete all four to earn your
-            Imperial Rank and take your place among the Empire.
+            Every recruit must face the Four Trials. Reading, Listening, Speaking, and Writing — 
+            the four pillars of English proficiency. Complete all four to earn your
+            Imperial Score (0-120) and your place among the Empire.
           </p>
           <p className="font-arabic text-[#8b7355] text-sm max-w-2xl mx-auto leading-relaxed" dir="rtl">
-            كل مجند يجب أن يواجه الاختبارات الأربعة. كل اختبار يقيس جانباً مختلفاً من إتقانك للغة الإنجليزية. أكمل الأربعة لتحصل على رتبتك.
+            كل مجند يواجه الاختبارات الأربعة: القراءة، الاستماع، التحدث، والكتابة. أكمل الأربعة لتحصل على نتيجتك الإمبراطورية (0-120).
           </p>
+
+          {/* TOEFL Score Scale */}
+          <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.05)]">
+            <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider">
+              4 SECTIONS
+            </span>
+            <span className="text-[rgba(201,168,76,0.3)]">&middot;</span>
+            <span className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-xs tracking-wider">
+              0-30 PER SECTION
+            </span>
+            <span className="text-[rgba(201,168,76,0.3)]">&middot;</span>
+            <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider">
+              0-120 TOTAL
+            </span>
+            <span className="text-[rgba(201,168,76,0.3)]">&middot;</span>
+            <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wider">
+              ~65 MIN
+            </span>
+          </div>
         </motion.div>
 
         {/* Decorative bottom gradient */}
@@ -504,9 +555,9 @@ export default function AssessmentPage() {
               <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-base sm:text-lg italic mb-8">
                 Select a trial above and begin your journey. The Empire awaits those with the courage to test their command of English.
               </p>
-              <Link href="/assessment/vocabulary">
+              <Link href="/assessment/reading">
                 <ImperialButton variant="primary" size="lg">
-                  Begin with Vocabulary
+                  Begin with Reading
                   <ChevronRight className="w-5 h-5 ml-2" />
                 </ImperialButton>
               </Link>
