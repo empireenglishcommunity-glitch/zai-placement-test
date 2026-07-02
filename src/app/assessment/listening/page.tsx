@@ -1,801 +1,451 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRetakeCooldown } from '@/hooks/useRetakeCooldown';
-import { useUserId } from '@/hooks/useUserId';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Volume2,
-  VolumeX,
-  ChevronRight,
-  ArrowLeft,
-  Award,
-  CheckCircle2,
-  Loader2,
-  Headphones,
-  Radio,
-} from 'lucide-react';
+import Link from 'next/link';
+import { Clock, ChevronRight, Headphones, ArrowRight, CheckCircle2, XCircle, Volume2, Play, Pause } from 'lucide-react';
 import {
   ParticleBackground,
   Navbar,
   Footer,
-  ImperialButton,
   MetallicCard,
+  ImperialButton,
   GlowingBorder,
   ProgressBar,
   SectionDivider,
-  ImperialRankBadge,
 } from '@/components/empire';
-import { IMPERIAL_RANKS } from '@/lib/types';
-import type { ImperialLevel, ListeningSpeed } from '@/lib/types';
-import { LISTENING_LEVELS, LISTENING_CONFIG, MODULE_INFO } from '@/lib/constants';
-
-// ─── Fallback Passages ────────────────────────────────────
-
-const fallbackPassages: Record<ListeningSpeed, {
-  passage: string;
-  speed: string;
-  wpm: number;
-  questions: { question: string; options: string[]; correctAnswer: number; type: string }[];
-}> = {
-  slow: {
-    passage: 'The old warrior sat by the fire. He told stories of the great battles. The young recruits listened carefully. They wanted to learn from his experience.',
-    speed: 'slow',
-    wpm: 80,
-    questions: [
-      { question: 'What was the warrior doing?', options: ['Fighting a battle', 'Sitting by the fire', 'Training recruits', 'Writing a book'], correctAnswer: 1, type: 'literal' },
-      { question: 'Why did the recruits listen carefully?', options: ['They were ordered to', 'They wanted to learn', 'They were bored', 'They were scared'], correctAnswer: 1, type: 'inference' },
-      { question: 'What did the warrior tell stories about?', options: ['His childhood', 'Cooking recipes', 'Great battles', 'The weather'], correctAnswer: 2, type: 'detail' },
-    ],
-  },
-  natural: {
-    passage: "The empire's training academy was known throughout the land for producing the most skilled warriors. Students underwent rigorous physical and mental training, learning not only combat techniques but also the art of strategy and leadership.",
-    speed: 'natural',
-    wpm: 130,
-    questions: [
-      { question: 'What was the academy known for?', options: ['Beautiful architecture', 'Producing skilled warriors', 'Large library', 'Musical performances'], correctAnswer: 1, type: 'literal' },
-      { question: 'What can be inferred about the training?', options: ['It was easy', 'It was comprehensive', 'It was only physical', 'It was short'], correctAnswer: 1, type: 'inference' },
-      { question: 'Besides combat, what else did students learn?', options: ['Music and art', 'Strategy and leadership', 'Cooking and healing', 'Farming and trading'], correctAnswer: 1, type: 'detail' },
-    ],
-  },
-  fast: {
-    passage: "The council convened at dawn, their deliberations spanning the entire day as they weighed the consequences of the proposed alliance with the neighboring kingdom. Arguments were presented with meticulous detail, each delegate articulating their perspective with the precision of a seasoned diplomat, knowing that the decision would shape the empire's trajectory for generations to come.",
-    speed: 'fast',
-    wpm: 160,
-    questions: [
-      { question: 'When did the council meet?', options: ['At midnight', 'At dawn', 'At dusk', 'At noon'], correctAnswer: 1, type: 'literal' },
-      { question: 'What can be inferred about the decision?', options: ['It was unimportant', 'It had far-reaching consequences', 'It was about trade only', 'It was quickly decided'], correctAnswer: 1, type: 'inference' },
-      { question: 'How did the delegates present their arguments?', options: ['Emotionally', 'With meticulous detail', 'Briefly', 'Aggressively'], correctAnswer: 1, type: 'detail' },
-    ],
-  },
-};
+import { getListeningSet, type ListeningPassage, type ListeningQuestion } from '@/data/listening-passages';
 
 // ─── Types ─────────────────────────────────────────────────
 
-type Phase = 'intro' | 'listening' | 'results';
+type Phase = 'intro' | 'listening' | 'questions' | 'results';
 
-interface PassageContent {
-  passage: string;
-  speed: string;
-  wpm: number;
-  questions: {
-    question: string;
-    options: string[];
-    correctAnswer: number;
-    type: string;
-  }[];
+interface AnswerRecord {
+  questionId: string;
+  selectedAnswer: number;
+  isCorrect: boolean;
 }
 
-interface SpeedSectionResult {
-  speed: ListeningSpeed;
-  answers: number[];
-  correctAnswers: number[];
-  questionTypes: string[];
-}
-
-// ─── Calculate Listening Score ─────────────────────────────
-
-function calculateListeningScore(results: SpeedSectionResult[]): {
-  overallScore: number;
-  level: ImperialLevel;
-  literalComprehension: number;
-  inference: number;
-  detailRecognition: number;
-} {
-  let literalCorrect = 0;
-  let literalTotal = 0;
-  let inferenceCorrect = 0;
-  let inferenceTotal = 0;
-  let detailCorrect = 0;
-  let detailTotal = 0;
-
-  for (const result of results) {
-    for (let i = 0; i < result.answers.length; i++) {
-      const isCorrect = result.answers[i] === result.correctAnswers[i];
-      const type = result.questionTypes[i];
-
-      if (type === 'literal') {
-        literalTotal++;
-        if (isCorrect) literalCorrect++;
-      } else if (type === 'inference') {
-        inferenceTotal++;
-        if (isCorrect) inferenceCorrect++;
-      } else if (type === 'detail') {
-        detailTotal++;
-        if (isCorrect) detailCorrect++;
-      }
-    }
-  }
-
-  const literalComprehension = literalTotal > 0 ? Math.round((literalCorrect / literalTotal) * 100) : 0;
-  const inference = inferenceTotal > 0 ? Math.round((inferenceCorrect / inferenceTotal) * 100) : 0;
-  const detailRecognition = detailTotal > 0 ? Math.round((detailCorrect / detailTotal) * 100) : 0;
-
-  const overallScore = Math.round(
-    literalComprehension * 0.3 + inference * 0.4 + detailRecognition * 0.3,
-  );
-
-  let level: ImperialLevel = 0;
-  for (const threshold of LISTENING_LEVELS) {
-    if (overallScore >= threshold.min && overallScore <= threshold.max) {
-      level = threshold.level;
-      break;
-    }
-  }
-
-  return { overallScore, level, literalComprehension, inference, detailRecognition };
-}
-
-// ─── Speed Config ──────────────────────────────────────────
-
-const speeds: ListeningSpeed[] = ['slow', 'natural', 'fast'];
-const speedLabels = LISTENING_CONFIG.speeds;
-const ttsRates: Record<ListeningSpeed, number> = { slow: 0.6, natural: 0.9, fast: 1.3 };
-
-// ─── Main Component ────────────────────────────────────────
+// ─── Component ─────────────────────────────────────────────
 
 export default function ListeningAssessmentPage() {
-  const { data: authSession, status: authStatus } = useSession();
-  const { userId: listeningUserId, isGuest: isListeningGuest } = useUserId();
-  const cooldown = useRetakeCooldown('listening');
-  const router = useRouter();
   const [phase, setPhase] = useState<Phase>('intro');
+  const [passages, setPassages] = useState<ListeningPassage[]>([]);
+  const [currentPassageIndex, setCurrentPassageIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [score, setScore] = useState(0);
 
-  // Auth guard: redirect if not logged in AND not guest
-  useEffect(() => {
-    if (authStatus === 'loading') return;
-    if (authStatus === 'unauthenticated' && !isListeningGuest) {
-      router.push('/login');
+  // Audio state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const [playCount, setPlayCount] = useState(0);
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // ─── TTS Playback ────────────────────────────────────────
+
+  const playPassage = useCallback(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    const passage = passages[currentPassageIndex];
+    if (!passage) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(passage.transcript);
+    utterance.rate = passage.wpm / 150; // Normalize: 150 WPM = rate 1.0
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    // Try to use a good English voice
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) 
+      || voices.find(v => v.lang.startsWith('en-US'))
+      || voices.find(v => v.lang.startsWith('en'));
+    if (englishVoice) utterance.voice = englishVoice;
+
+    utterance.onstart = () => setIsPlaying(true);
+    utterance.onend = () => {
+      setIsPlaying(false);
+      setHasPlayed(true);
+      setPlayCount(prev => prev + 1);
+    };
+    utterance.onerror = () => setIsPlaying(false);
+
+    speechRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  }, [passages, currentPassageIndex]);
+
+  const stopPlayback = useCallback(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
-  }, [authStatus, router, isListeningGuest]);
-  const [currentSpeedIndex, setCurrentSpeedIndex] = useState(0);
-  const [passages, setPassages] = useState<Record<ListeningSpeed, PassageContent | null>>({
-    slow: null,
-    natural: null,
-    fast: null,
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [hasListened, setHasListened] = useState(false);
-  const [answers, setAnswers] = useState<Record<ListeningSpeed, number[]>>({
-    slow: [],
-    natural: [],
-    fast: [],
-  });
-  const [results, setResults] = useState<SpeedSectionResult[]>([]);
-  const [showTranscript, setShowTranscript] = useState(false);
-
-  const currentSpeed = speeds[currentSpeedIndex];
-  const currentPassage = passages[currentSpeed];
-  const currentAnswers = answers[currentSpeed];
-
-  // ─── Fetch Passages ────────────────────────────────────
-  const fetchPassages = useCallback(async () => {
-    setIsLoading(true);
-    const newPassages: Record<ListeningSpeed, PassageContent | null> = { slow: null, natural: null, fast: null };
-
-    await Promise.all(
-      speeds.map(async (speed) => {
-        try {
-          const response = await fetch('/api/ai/generate-listening', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ speed }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            newPassages[speed] = data.content || fallbackPassages[speed];
-          } else {
-            newPassages[speed] = fallbackPassages[speed];
-          }
-        } catch {
-          newPassages[speed] = fallbackPassages[speed];
-        }
-      }),
-    );
-
-    setPassages(newPassages);
-    setIsLoading(false);
+    setIsPlaying(false);
   }, []);
 
-  // ─── TTS ───────────────────────────────────────────────
-  const speakPassage = useCallback(
-    (text: string) => {
-      if (typeof window === 'undefined' || !window.speechSynthesis) return;
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = ttsRates[currentSpeed];
-      utterance.pitch = 1;
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setHasListened(true);
-      };
-      window.speechSynthesis.speak(utterance);
-    },
-    [currentSpeed],
-  );
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { stopPlayback(); };
+  }, [stopPlayback]);
 
-  // ─── Answer Selection ──────────────────────────────────
-  const selectAnswer = useCallback(
-    (questionIndex: number, optionIndex: number) => {
-      setAnswers((prev) => {
-        const newAnswers = { ...prev };
-        const current = [...(newAnswers[currentSpeed] || [])];
-        current[questionIndex] = optionIndex;
-        newAnswers[currentSpeed] = current;
-        return newAnswers;
-      });
-    },
-    [currentSpeed],
-  );
+  // ─── Start Trial ─────────────────────────────────────────
 
-  // ─── Submit Section ────────────────────────────────────
-  const submitSection = useCallback(() => {
-    if (!currentPassage) return;
-
-    const sectionResult: SpeedSectionResult = {
-      speed: currentSpeed,
-      answers: currentPassage.questions.map((_, i) => currentAnswers[i] ?? -1),
-      correctAnswers: currentPassage.questions.map((q) => q.correctAnswer),
-      questionTypes: currentPassage.questions.map((q) => q.type),
-    };
-
-    setResults((prev) => {
-      const newResults = [...prev, sectionResult];
-      
-      // If this was the last section, submit scores now (we have all data)
-      if (currentSpeedIndex >= speeds.length - 1) {
-        const finalScore = calculateListeningScore(newResults);
-        const userId = listeningUserId || '';
-        fetch('/api/assessment/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            module: 'listening',
-            userId,
-            answers: [],
-            scores: {
-              literalComprehension: finalScore.literalComprehension,
-              inference: finalScore.inference,
-              overall: finalScore.overallScore,
-              level: finalScore.level,
-            },
-          }),
-        }).catch(() => {});
-      }
-      
-      return newResults;
-    });
-
-    if (currentSpeedIndex < speeds.length - 1) {
-      setCurrentSpeedIndex((prev) => prev + 1);
-      setHasListened(false);
-      setShowTranscript(false);
-      setAnswers((prev) => ({ ...prev, [speeds[currentSpeedIndex + 1]]: [] }));
-    } else {
-      setPhase('results');
-      cooldown.markCompleted();
-    }
-  }, [currentPassage, currentAnswers, currentSpeed, currentSpeedIndex]);
-
-  // ─── Start Assessment ──────────────────────────────────
-  const startAssessment = async () => {
-    await fetchPassages();
+  const handleStart = useCallback(() => {
+    const set = getListeningSet();
+    setPassages(set);
+    setCurrentPassageIndex(0);
+    setCurrentQuestionIndex(0);
+    setAnswers([]);
+    setSelectedOption(null);
+    setIsAnswered(false);
+    setHasPlayed(false);
+    setPlayCount(0);
     setPhase('listening');
+  }, []);
+
+  // ─── Move to Questions After Listening ───────────────────
+
+  const handleProceedToQuestions = () => {
+    stopPlayback();
+    setPhase('questions');
   };
 
-  // ─── Score ─────────────────────────────────────────────
-  const scoreResult = calculateListeningScore(results);
+  // ─── Answer Selection ────────────────────────────────────
 
-  // ─── Progress ──────────────────────────────────────────
-  const getOverallProgress = () => {
-    if (phase === 'intro') return 0;
-    if (phase === 'listening') {
-      const base = (currentSpeedIndex / speeds.length) * 100;
-      const questionsAnswered = currentAnswers.filter((a) => a !== undefined).length;
-      const totalQuestions = currentPassage?.questions.length || 3;
-      return base + (questionsAnswered / totalQuestions / speeds.length) * 100;
+  const handleSelectOption = (idx: number) => {
+    if (isAnswered) return;
+    setSelectedOption(idx);
+    setIsAnswered(true);
+    const passage = passages[currentPassageIndex];
+    const question = passage.questions[currentQuestionIndex];
+    const isCorrect = idx === question.correctAnswer;
+    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: idx, isCorrect }]);
+  };
+
+  // ─── Skip Question ───────────────────────────────────────
+
+  const handleSkip = () => {
+    if (isAnswered) return;
+    const passage = passages[currentPassageIndex];
+    const question = passage.questions[currentQuestionIndex];
+    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: -1, isCorrect: false }]);
+    advanceQuestion();
+  };
+
+  // ─── Next Question ───────────────────────────────────────
+
+  const advanceQuestion = useCallback(() => {
+    const passage = passages[currentPassageIndex];
+    if (currentQuestionIndex + 1 < passage.questions.length) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else if (currentPassageIndex + 1 < passages.length) {
+      // Move to next passage — listen first
+      setCurrentPassageIndex(prev => prev + 1);
+      setCurrentQuestionIndex(0);
+      setHasPlayed(false);
+      setPlayCount(0);
+      setPhase('listening');
+    } else {
+      // All done
+      const totalCorrect = answers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+      setScore(Math.round((totalCorrect / totalQ) * 30));
+      setPhase('results');
+      return;
     }
-    return 100;
-  };
+    setSelectedOption(null);
+    setIsAnswered(false);
+  }, [passages, currentPassageIndex, currentQuestionIndex, answers]);
 
-  return (
-    <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
-      <ParticleBackground />
-      <Navbar />
+  const handleNext = () => advanceQuestion();
 
-      <main className="flex-1 relative z-10 pt-20 pb-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          {/* ── Back Link ── */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="mb-6"
-          >
-            <a
-              href="/assessment"
-              className="inline-flex items-center gap-2 text-[#8b7355] hover:text-[#c9a84c] transition-colors font-[family-name:var(--font-heading)] text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Return to Trials
-            </a>
-          </motion.div>
+  // ─── Current State ───────────────────────────────────────
 
-          {/* ── Header ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
-          >
-            <h1 className="font-[family-name:var(--font-heading)] text-3xl sm:text-4xl font-bold text-[#c9a84c] mb-2">
-              👂 {MODULE_INFO.listening.empireTitle}
-            </h1>
-            <p className="text-[#8b7355] font-[family-name:var(--font-heading)]">
-              {MODULE_INFO.listening.description}
-            </p>
-          </motion.div>
+  const currentPassage = passages[currentPassageIndex];
+  const currentQuestion = currentPassage?.questions[currentQuestionIndex];
+  const totalQuestions = passages.reduce((sum, p) => sum + p.questions.length, 0);
+  const answeredSoFar = answers.length;
 
-          {/* ── Progress Bar ── */}
-          {phase === 'listening' && (
-            <div className="mb-8">
-              <ProgressBar value={getOverallProgress()} max={100} label="Trial Progress" />
-            </div>
-          )}
 
-          <AnimatePresence mode="wait">
-            {/* ═══════════════════════════════════════════════ */}
-            {/* INTRO PHASE */}
-            {/* ═══════════════════════════════════════════════ */}
-            {phase === 'intro' && (
-              <motion.div
-                key="intro"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30 }}
-                className="space-y-6"
-              >
-                <GlowingBorder intensity="high">
-                  <MetallicCard hover={false} className="p-8">
-                    <div className="text-center space-y-6">
-                      <div className="text-5xl mb-4">👂</div>
-                      <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c]">
-                        The Perception Trial
-                      </h2>
-                      <p className="font-arabic text-[#8b7355] text-base mt-2" dir="rtl">اختبار الاستماع</p>
-                      <p className="text-[#c0c0c0] leading-relaxed max-w-2xl mx-auto mt-4">
-                        The Empire demands not only a strong voice, but keen ears. Listen to passages
-                        at increasing speeds and prove your comprehension. Only those who truly
-                        understand the spoken word will ascend.
-                      </p>
-                      <p className="font-arabic text-[#8b7355] text-sm leading-relaxed mt-3 max-w-2xl mx-auto" dir="rtl">
-                        استمع لمقاطع صوتية بثلاث سرعات مختلفة وأجب عن أسئلة الفهم. اختبار يقيس قدرتك على فهم اللغة الإنجليزية المنطوقة.
-                      </p>
+  // ─── Intro Screen ────────────────────────────────────────
 
-                      <SectionDivider />
+  if (phase === 'intro') {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 pt-20 pb-12 relative z-10">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+            <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="text-6xl mb-6">👂</div>
+              <h1 className="font-[family-name:var(--font-heading)] text-4xl sm:text-5xl font-bold text-[#c9a84c] mb-2">Trial of Listening</h1>
+              <p className="font-arabic text-[#8b7355] text-base mb-3" dir="rtl">اختبار الاستماع والفهم</p>
+              <p className="font-[family-name:var(--font-heading)] text-[#cd7f32] text-lg tracking-widest uppercase">The Perception Trial</p>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <GlowingBorder color="gold" intensity="medium">
+                <MetallicCard className="p-6 sm:p-8 text-center" hover={false}>
+                  <p className="text-[#c0c0c0] text-base leading-relaxed mb-4">
+                    You will listen to 3 audio passages — academic lectures and campus conversations.
+                    After each passage, answer 5 comprehension questions. You may replay each passage
+                    up to 2 times. Questions test main idea, details, inference, speaker attitude, and purpose.
+                  </p>
+                  <p className="font-arabic text-[#8b7355] text-sm leading-relaxed" dir="rtl">
+                    ستستمع إلى 3 مقاطع صوتية — محاضرات أكاديمية ومحادثات جامعية. بعد كل مقطع، أجب عن 5 أسئلة فهم. يمكنك إعادة تشغيل كل مقطع مرتين.
+                  </p>
+                </MetallicCard>
+              </GlowingBorder>
+            </motion.div>
+            <SectionDivider />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <MetallicCard className="p-5" hover={false}>
+                <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm uppercase tracking-widest mb-4 text-center">Assessment Rules</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-start gap-2"><span className="text-[#4ade80] mt-0.5">✓</span><span className="text-[#c0c0c0]">Listen carefully — you can replay up to 2 times</span></div>
+                  <div className="flex items-start gap-2"><span className="text-[#4ade80] mt-0.5">✓</span><span className="text-[#c0c0c0]">Take notes while listening if needed</span></div>
+                  <div className="flex items-start gap-2"><span className="text-[#e74c3c] mt-0.5">✗</span><span className="text-[#c0c0c0]">Do not read the transcript during questions</span></div>
+                  <div className="flex items-start gap-2"><span className="text-[#4ade80] mt-0.5">✓</span><span className="text-[#c0c0c0]">Use headphones for best audio quality</span></div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-[rgba(201,168,76,0.1)] text-center">
+                  <span className="text-[#8b7355] text-xs">3 Passages &middot; 15 Questions &middot; ~15 minutes &middot; Score: 0-30</span>
+                </div>
+              </MetallicCard>
+            </motion.div>
+            <motion.div className="text-center mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+              <ImperialButton variant="primary" size="lg" onClick={handleStart} className="gap-2">
+                <Headphones className="w-5 h-5" />
+                <span>Begin Listening Trial</span>
+              </ImperialButton>
+            </motion.div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {speeds.map((speed) => (
-                          <MetallicCard key={speed} hover={false} className="p-4">
-                            <div className="text-3xl mb-2">
-                              {speed === 'slow' ? '🐢' : speed === 'natural' ? '⚔️' : '⚡'}
-                            </div>
-                            <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] font-semibold mb-1">
-                              {speedLabels[speed].label}
-                            </h3>
-                            <p className="text-[#8b7355] text-sm">
-                              {speedLabels[speed].wpm} WPM —{' '}
-                              {speed === 'slow'
-                                ? 'Clear and deliberate'
-                                : speed === 'natural'
-                                  ? 'Conversational pace'
-                                  : 'Rapid and challenging'}
-                            </p>
-                          </MetallicCard>
-                        ))}
-                      </div>
+  // ─── Listening Phase (play audio before questions) ────────
 
-                      <div className="flex items-center justify-center gap-2 text-[#8b7355] text-sm mt-4">
-                        <Headphones className="w-4 h-4" />
-                        <span>Audio playback required for this trial</span>
-                      </div>
+  if (phase === 'listening' && currentPassage) {
+    const diffColors = { easy: '#4ade80', medium: '#c9a84c', hard: '#ff6b35' };
+    const diffLabels = { easy: 'Passage 1 — Foundation', medium: 'Passage 2 — Academic', hard: 'Passage 3 — Advanced' };
 
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 pt-20 pb-12 relative z-10">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              {/* Header */}
+              <div className="text-center mb-8">
+                <span className="font-[family-name:var(--font-heading)] text-sm font-bold" style={{ color: diffColors[currentPassage.difficulty] }}>
+                  {diffLabels[currentPassage.difficulty]}
+                </span>
+                <h2 className="font-[family-name:var(--font-heading)] text-2xl text-[#c9a84c] mt-2">{currentPassage.title}</h2>
+                <p className="text-[#8b7355] text-xs mt-1 capitalize">{currentPassage.format} &middot; {currentPassage.topic}</p>
+              </div>
+
+              {/* Audio Player Card */}
+              <GlowingBorder color="gold" intensity="medium">
+                <MetallicCard className="p-8 sm:p-12 text-center" hover={false}>
+                  <motion.div animate={isPlaying ? { scale: [1, 1.05, 1] } : {}} transition={{ duration: 1.5, repeat: isPlaying ? Infinity : 0 }}>
+                    <Volume2 className={`w-16 h-16 mx-auto mb-6 ${isPlaying ? 'text-[#c9a84c]' : 'text-[#8b7355]'}`} />
+                  </motion.div>
+
+                  {!hasPlayed && !isPlaying && (
+                    <p className="text-[#c0c0c0] text-sm mb-6">Press play to listen to the passage. Listen carefully — you will answer questions after.</p>
+                  )}
+                  {isPlaying && (
+                    <p className="text-[#c9a84c] text-sm mb-6 font-[family-name:var(--font-heading)]">Listening... pay close attention.</p>
+                  )}
+                  {hasPlayed && !isPlaying && (
+                    <p className="text-[#4ade80] text-sm mb-6">Passage complete. You may replay or proceed to questions.</p>
+                  )}
+
+                  <div className="flex items-center justify-center gap-4">
+                    {!isPlaying ? (
                       <ImperialButton
                         variant="primary"
                         size="lg"
-                        onClick={startAssessment}
-                        disabled={isLoading}
+                        onClick={playPassage}
+                        disabled={playCount >= 2 && hasPlayed}
+                        className="gap-2"
                       >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Preparing Trials...
-                          </>
-                        ) : (
-                          <>
-                            Begin the Trial
-                            <ChevronRight className="w-5 h-5 ml-2 inline" />
-                          </>
-                        )}
+                        <Play className="w-5 h-5" />
+                        <span>{playCount === 0 ? 'Play Passage' : `Replay (${2 - playCount} left)`}</span>
                       </ImperialButton>
+                    ) : (
+                      <ImperialButton variant="secondary" size="lg" onClick={stopPlayback} className="gap-2">
+                        <Pause className="w-5 h-5" />
+                        <span>Pause</span>
+                      </ImperialButton>
+                    )}
+                  </div>
+
+                  {hasPlayed && (
+                    <motion.div className="mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <ImperialButton variant="primary" size="md" onClick={handleProceedToQuestions} className="gap-2">
+                        <span>Proceed to Questions</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </ImperialButton>
+                    </motion.div>
+                  )}
+                </MetallicCard>
+              </GlowingBorder>
+            </motion.div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+
+  // ─── Questions Phase ─────────────────────────────────────
+
+  if (phase === 'questions' && currentPassage && currentQuestion) {
+    const diffColors = { easy: '#4ade80', medium: '#c9a84c', hard: '#ff6b35' };
+
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 pt-20 pb-12 relative z-10">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6">
+            {/* Progress */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-[family-name:var(--font-heading)] text-sm text-[#c9a84c]">{currentPassage.title}</span>
+              <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs">{answeredSoFar + 1}/{totalQuestions}</span>
+            </div>
+            <ProgressBar value={answeredSoFar + 1} max={totalQuestions} showPercentage={false} color={diffColors[currentPassage.difficulty]} size="sm" />
+
+            {/* Question */}
+            <AnimatePresence mode="wait">
+              <motion.div key={currentQuestion.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-6">
+                <GlowingBorder color="gold" intensity="low">
+                  <MetallicCard className="p-5 sm:p-6" hover={false}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-[family-name:var(--font-heading)] tracking-wider uppercase border border-[rgba(201,168,76,0.3)] text-[#c9a84c] bg-[rgba(201,168,76,0.05)]">
+                        {currentQuestion.type.replace('_', ' ')}
+                      </span>
+                      <span className="text-[#8b7355] text-xs">Q{currentQuestionIndex + 1} of {currentPassage.questions.length}</span>
                     </div>
-                  </MetallicCard>
-                </GlowingBorder>
-              </motion.div>
-            )}
-
-            {/* ═══════════════════════════════════════════════ */}
-            {/* LISTENING PHASE */}
-            {/* ═══════════════════════════════════════════════ */}
-            {phase === 'listening' && currentPassage && (
-              <motion.div
-                key={`listening_${currentSpeed}`}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30 }}
-                className="space-y-6"
-              >
-                {/* Speed Header */}
-                <div className="text-center mb-4">
-                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-sm">
-                    Section {currentSpeedIndex + 1} of {speeds.length}
-                  </span>
-                  <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] font-bold">
-                    {speedLabels[currentSpeed].label} — {speedLabels[currentSpeed].wpm} WPM
-                  </h2>
-                </div>
-
-                {/* Listen Card */}
-                <GlowingBorder
-                  intensity={currentSpeed === 'fast' ? 'high' : 'medium'}
-                  color={currentSpeed === 'slow' ? 'gold' : currentSpeed === 'natural' ? 'bronze' : 'fire'}
-                >
-                  <MetallicCard hover={false} className="p-6">
-                    <div className="space-y-6">
-                      {/* Audio Controls */}
-                      <div className="text-center space-y-4">
-                        <p className="text-[#8b7355] text-sm font-[family-name:var(--font-heading)]">
-                          Listen to the passage carefully
-                        </p>
-
-                        <div className="flex justify-center gap-3">
-                          <ImperialButton
-                            variant={isSpeaking ? 'danger' : 'primary'}
-                            size="lg"
-                            onClick={() => speakPassage(currentPassage.passage)}
-                            disabled={isSpeaking}
-                          >
-                            {isSpeaking ? (
-                              <>
-                                <VolumeX className="w-5 h-5 mr-2" />
-                                Playing...
-                              </>
-                            ) : (
-                              <>
-                                <Volume2 className="w-5 h-5 mr-2" />
-                                Listen to Passage
-                              </>
-                            )}
-                          </ImperialButton>
-
-                          {hasListened && (
-                            <ImperialButton
-                              variant="outline"
-                              size="lg"
-                              onClick={() => speakPassage(currentPassage.passage)}
-                              disabled={isSpeaking}
-                            >
-                              <Radio className="w-5 h-5 mr-2" />
-                              Replay
-                            </ImperialButton>
-                          )}
-                        </div>
-
-                        {/* Speaking indicator */}
-                        {isSpeaking && (
-                          <motion.div
-                            className="flex items-center justify-center gap-2 text-[#c9a84c]"
-                            animate={{ opacity: [1, 0.3, 1] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                          >
-                            <div className="w-3 h-3 rounded-full bg-[#c9a84c]" />
-                            <span className="text-sm font-[family-name:var(--font-heading)]">
-                              Playing audio at {speedLabels[currentSpeed].wpm} WPM...
-                            </span>
-                          </motion.div>
-                        )}
-
-                        {/* Transcript toggle */}
-                        {hasListened && (
-                          <div className="space-y-3">
-                            <ImperialButton
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowTranscript(!showTranscript)}
-                            >
-                              {showTranscript ? 'Hide Transcript' : 'Show Transcript'}
-                            </ImperialButton>
-
-                            {showTranscript && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                className="bg-[rgba(201,168,76,0.05)] rounded-lg p-4 border border-[rgba(201,168,76,0.15)]"
-                              >
-                                <p className="text-[#c0c0c0] italic text-sm leading-relaxed">
-                                  {currentPassage.passage}
-                                </p>
-                              </motion.div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Questions */}
-                      {hasListened && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="space-y-4 pt-4"
-                        >
-                          <SectionDivider />
-
-                          <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] font-semibold text-center">
-                            Comprehension Questions
-                          </h3>
-
-                          {currentPassage.questions.map((q, qIndex) => (
-                            <MetallicCard key={qIndex} hover={false} className="p-4">
-                              <div className="space-y-3">
-                                <div className="flex items-start gap-2">
-                                  <span className="text-[#c9a84c] font-[family-name:var(--font-heading)] font-bold text-sm">
-                                    {qIndex + 1}.
-                                  </span>
-                                  <div className="flex-1">
-                                    <p className="text-[#c0c0c0] text-sm mb-1">{q.question}</p>
-                                    <span className="text-[#8b7355] text-xs font-[family-name:var(--font-heading)] uppercase">
-                                      {q.type === 'literal'
-                                        ? '📖 Literal Comprehension'
-                                        : q.type === 'inference'
-                                          ? '🔍 Inference'
-                                          : '🔎 Detail Recognition'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {q.options.map((option, oIndex) => (
-                                    <button
-                                      key={oIndex}
-                                      onClick={() => selectAnswer(qIndex, oIndex)}
-                                      className={`text-left px-4 py-2.5 rounded-md border text-sm transition-all cursor-pointer ${
-                                        currentAnswers[qIndex] === oIndex
-                                          ? 'border-[#c9a84c] bg-[rgba(201,168,76,0.15)] text-[#c9a84c]'
-                                          : 'border-[rgba(201,168,76,0.15)] bg-[rgba(26,26,46,0.5)] text-[#c0c0c0] hover:border-[rgba(201,168,76,0.3)] hover:bg-[rgba(201,168,76,0.05)]'
-                                      }`}
-                                    >
-                                      <span className="font-[family-name:var(--font-heading)] font-semibold mr-2">
-                                        {String.fromCharCode(65 + oIndex)}.
-                                      </span>
-                                      {option}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </MetallicCard>
-                          ))}
-
-                          {/* Submit */}
-                          <div className="flex justify-center pt-4">
-                            <ImperialButton
-                              variant="primary"
-                              size="lg"
-                              onClick={submitSection}
-                              disabled={
-                                currentPassage.questions.some(
-                                  (_, i) => currentAnswers[i] === undefined,
-                                )
-                              }
-                            >
-                              {currentSpeedIndex < speeds.length - 1 ? (
-                                <>
-                                  Next Speed Level
-                                  <ChevronRight className="w-5 h-5 ml-2 inline" />
-                                </>
-                              ) : (
-                                <>
-                                  View Results
-                                  <Award className="w-5 h-5 ml-2 inline" />
-                                </>
-                              )}
-                            </ImperialButton>
-                          </div>
-                        </motion.div>
+                    <h4 className="text-[#e8e8e8] text-base sm:text-lg leading-relaxed mb-6">{currentQuestion.questionText}</h4>
+                    <div className="space-y-3">
+                      {currentQuestion.options.map((option, idx) => {
+                        const isSelected = selectedOption === idx;
+                        const isCorrect = isAnswered && idx === currentQuestion.correctAnswer;
+                        const isWrong = isAnswered && isSelected && idx !== currentQuestion.correctAnswer;
+                        return (
+                          <button key={idx} type="button" onClick={() => handleSelectOption(idx)} disabled={isAnswered}
+                            className={`w-full text-left rounded-lg border p-4 transition-all duration-200 ${
+                              isCorrect ? 'border-[#4ade80] bg-[rgba(74,222,128,0.08)]'
+                              : isWrong ? 'border-[#e74c3c] bg-[rgba(231,76,60,0.08)]'
+                              : isSelected ? 'border-[#c9a84c] bg-[rgba(201,168,76,0.08)]'
+                              : 'border-[rgba(201,168,76,0.15)] bg-[#111118] hover:border-[rgba(201,168,76,0.35)]'
+                            }`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs font-bold ${
+                                isCorrect ? 'border-[#4ade80] text-[#4ade80]'
+                                : isWrong ? 'border-[#e74c3c] text-[#e74c3c]'
+                                : isSelected ? 'border-[#c9a84c] text-[#c9a84c]'
+                                : 'border-[rgba(201,168,76,0.25)] text-[#8b7355]'
+                              }`}>{String.fromCharCode(65 + idx)}</div>
+                              <span className={`text-sm ${isCorrect ? 'text-[#4ade80]' : isWrong ? 'text-[#e74c3c]' : isSelected ? 'text-[#e8d48b]' : 'text-[#c0c0c0]'}`}>{option}</span>
+                              {isCorrect && <CheckCircle2 className="w-4 h-4 text-[#4ade80] ml-auto" />}
+                              {isWrong && <XCircle className="w-4 h-4 text-[#e74c3c] ml-auto" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex flex-col items-center gap-3 mt-6">
+                      {isAnswered ? (
+                        <ImperialButton variant="primary" size="md" onClick={handleNext} className="gap-2 w-full sm:w-auto">
+                          <span>Next Question</span><ArrowRight className="w-4 h-4" />
+                        </ImperialButton>
+                      ) : (
+                        <button type="button" onClick={handleSkip} className="group flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(139,115,85,0.3)] hover:border-[rgba(139,115,85,0.5)] transition-all">
+                          <ChevronRight className="w-4 h-4 text-[#8b7355] group-hover:text-[#c9a84c]" />
+                          <span className="font-[family-name:var(--font-heading)] text-sm text-[#8b7355] group-hover:text-[#c9a84c]">I Don&apos;t Know</span>
+                          <span className="font-arabic text-xs text-[#8b7355]" dir="rtl">لا أعرف</span>
+                        </button>
                       )}
                     </div>
                   </MetallicCard>
                 </GlowingBorder>
               </motion.div>
-            )}
+            </AnimatePresence>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-            {/* ═══════════════════════════════════════════════ */}
-            {/* RESULTS PHASE */}
-            {/* ═══════════════════════════════════════════════ */}
-            {phase === 'results' && (
-              <motion.div
-                key="results"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30 }}
-                className="space-y-6"
-              >
-                <GlowingBorder intensity="high">
-                  <MetallicCard hover={false} className="p-8">
-                    <div className="text-center space-y-6">
-                      <div className="text-4xl">👂</div>
-                      <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-[#c9a84c]">
-                        Trial of the Ear — Complete
-                      </h2>
+  // ─── Results Screen ──────────────────────────────────────
 
-                      <div className="flex flex-col items-center gap-3">
-                        <ImperialRankBadge level={scoreResult.level} size="lg" />
-                        <div className="text-5xl font-[family-name:var(--font-heading)] font-bold text-[#c9a84c]">
-                          {scoreResult.overallScore}
-                        </div>
-                        <p className="text-[#8b7355] font-[family-name:var(--font-heading)]">
-                          Overall Listening Score
-                        </p>
-                      </div>
+  if (phase === 'results') {
+    const totalCorrect = answers.filter(a => a.isCorrect).length;
+    const totalSkipped = answers.filter(a => a.selectedAnswer === -1).length;
+    const accuracy = answers.filter(a => a.selectedAnswer !== -1).length > 0
+      ? Math.round((totalCorrect / answers.filter(a => a.selectedAnswer !== -1).length) * 100) : 0;
 
-                      <SectionDivider />
-
-                      {/* Score Breakdown */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <MetallicCard hover={false} className="p-4">
-                          <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm mb-2">
-                            📖 Literal Comprehension
-                          </h3>
-                          <div className="text-3xl font-bold text-[#c0c0c0] mb-1">
-                            {scoreResult.literalComprehension}%
-                          </div>
-                          <ProgressBar
-                            value={scoreResult.literalComprehension}
-                            max={100}
-                            showPercentage={false}
-                            size="sm"
-                          />
-                          <p className="text-[#8b7355] text-xs mt-2">30% weight</p>
-                        </MetallicCard>
-                        <MetallicCard hover={false} className="p-4">
-                          <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm mb-2">
-                            🔍 Inference
-                          </h3>
-                          <div className="text-3xl font-bold text-[#c0c0c0] mb-1">
-                            {scoreResult.inference}%
-                          </div>
-                          <ProgressBar
-                            value={scoreResult.inference}
-                            max={100}
-                            showPercentage={false}
-                            size="sm"
-                          />
-                          <p className="text-[#8b7355] text-xs mt-2">40% weight</p>
-                        </MetallicCard>
-                        <MetallicCard hover={false} className="p-4">
-                          <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm mb-2">
-                            🔎 Detail Recognition
-                          </h3>
-                          <div className="text-3xl font-bold text-[#c0c0c0] mb-1">
-                            {scoreResult.detailRecognition}%
-                          </div>
-                          <ProgressBar
-                            value={scoreResult.detailRecognition}
-                            max={100}
-                            showPercentage={false}
-                            size="sm"
-                          />
-                          <p className="text-[#8b7355] text-xs mt-2">30% weight</p>
-                        </MetallicCard>
-                      </div>
-
-                      <SectionDivider />
-
-                      {/* Per-Speed Breakdown */}
-                      <div className="space-y-3">
-                        <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] font-semibold">
-                          Per-Speed Results
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {results.map((r, i) => {
-                            const correct = r.answers.filter(
-                              (a, j) => a === r.correctAnswers[j],
-                            ).length;
-                            const total = r.answers.length;
-                            return (
-                              <MetallicCard key={i} hover={false} className="p-3">
-                                <div className="text-center">
-                                  <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs mb-1">
-                                    {speedLabels[r.speed].label}
-                                  </p>
-                                  <p className="text-[#c0c0c0] font-bold">
-                                    {correct}/{total}
-                                  </p>
-                                  <div className="flex items-center justify-center gap-1 mt-1">
-                                    {r.answers.map((a, j) => (
-                                      <CheckCircle2
-                                        key={j}
-                                        className="w-4 h-4"
-                                        style={{
-                                          color: a === r.correctAnswers[j] ? '#c9a84c' : '#e74c3c',
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              </MetallicCard>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Level Info */}
-                      <div className="bg-[rgba(201,168,76,0.05)] rounded-lg p-4 border border-[rgba(201,168,76,0.15)]">
-                        <p className="text-[#c0c0c0] text-sm">
-                          You have been assessed as{' '}
-                          <span className="text-[#c9a84c] font-[family-name:var(--font-heading)] font-bold">
-                            {IMPERIAL_RANKS[scoreResult.level]}
-                          </span>{' '}
-                          in the Trial of the Ear. Continue your training to sharpen your perception
-                          and ascend through the ranks of the Empire.
-                        </p>
-                      </div>
-
-                      <div className="flex gap-4 justify-center">
-                        <a href="/assessment">
-                          <ImperialButton variant="secondary">
-                            Return to Trials
-                          </ImperialButton>
-                        </a>
-                        <a href="/dashboard">
-                          <ImperialButton variant="primary">
-                            View Dashboard
-                          </ImperialButton>
-                        </a>
-                      </div>
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 pt-20 pb-12 relative z-10">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6">
+            <motion.div className="text-center mb-8" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="text-5xl mb-4">👂</div>
+              <h1 className="font-[family-name:var(--font-heading)] text-3xl sm:text-4xl font-bold text-[#c9a84c] mb-2">Listening Trial Complete</h1>
+              <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-base">The Perception Trial has been conquered</p>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <GlowingBorder color="gold" intensity="high">
+                <MetallicCard className="p-6 sm:p-8" hover={false}>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs uppercase tracking-widest mb-2">Listening Score</p>
+                      <p className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[#c9a84c]">{score}</p>
+                      <p className="text-[#8b7355] text-xs mt-1">out of 30</p>
                     </div>
-                  </MetallicCard>
-                </GlowingBorder>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </main>
+                    <div className="sm:border-x sm:border-[rgba(201,168,76,0.15)]">
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs uppercase tracking-widest mb-2">Correct</p>
+                      <p className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[#4ade80]">{totalCorrect}</p>
+                      <p className="text-[#8b7355] text-xs mt-1">of {totalQuestions} questions</p>
+                    </div>
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs uppercase tracking-widest mb-2">Accuracy</p>
+                      <p className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[#c9a84c]">{accuracy}%</p>
+                      <p className="text-[#8b7355] text-xs mt-1">{totalSkipped > 0 ? `${totalSkipped} skipped` : 'all answered'}</p>
+                    </div>
+                  </div>
+                </MetallicCard>
+              </GlowingBorder>
+            </motion.div>
+            <SectionDivider />
+            <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+              <Link href="/assessment">
+                <ImperialButton variant="primary" size="lg" className="gap-2">
+                  <span>Continue to Next Trial</span><ChevronRight className="w-5 h-5" />
+                </ImperialButton>
+              </Link>
+              <ImperialButton variant="outline" size="lg" onClick={handleStart} className="gap-2">
+                <span>Retake Listening</span>
+              </ImperialButton>
+            </motion.div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-      <Footer />
-    </div>
-  );
+  return null;
 }
