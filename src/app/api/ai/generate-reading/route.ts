@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withApiProtection } from '@/lib/api-protection';
+import { callAIJson } from '@/lib/ai-provider';
 
 // ─── Topics Pool (for variety) ──────────────────────────────
 
@@ -62,37 +63,6 @@ const HARD_TOPICS = [
   'epigenetics and transgenerational trauma',
   'the paradox of tolerance in liberal democracies',
 ];
-
-// ─── Gemini API Call ────────────────────────────────────────
-
-async function callGemini(prompt: string): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 3000,
-            responseMimeType: 'application/json',
-          },
-        }),
-      }
-    );
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  } catch {
-    return null;
-  }
-}
 
 // ─── Generate Passage Prompt ────────────────────────────────
 
@@ -169,41 +139,41 @@ async function handler(req: NextRequest) {
     const topicPool = difficulty === 'easy' ? EASY_TOPICS : difficulty === 'hard' ? HARD_TOPICS : MEDIUM_TOPICS;
     const topic = topicPool[Math.floor(Math.random() * topicPool.length)];
 
-    // Try AI generation
+    // Try AI generation via Groq (triple-fallback)
     const prompt = buildPrompt(topic, difficulty);
-    const aiResponse = await callGemini(prompt);
+    const aiResult = await callAIJson<{
+      title: string;
+      text: string;
+      wordCount?: number;
+      questions: { type: string; questionText: string; options: string[]; correctAnswer: number }[];
+    }>({
+      systemPrompt: 'You are an academic content generator. Generate reading passages and comprehension questions. Respond ONLY in valid JSON.',
+      userPrompt: prompt,
+      temperature: 0.8,
+      maxTokens: 3000,
+      jsonMode: true,
+    });
 
-    if (aiResponse) {
-      try {
-        // Parse JSON response
-        const parsed = JSON.parse(aiResponse);
+    if (aiResult && aiResult.data.title && aiResult.data.text && Array.isArray(aiResult.data.questions) && aiResult.data.questions.length === 5) {
+      const parsed = aiResult.data;
+      const passage = {
+        id: `ai-${difficulty}-${Date.now()}`,
+        difficulty,
+        title: parsed.title,
+        topic,
+        text: parsed.text,
+        wordCount: parsed.wordCount || parsed.text.split(/\s+/).length,
+        questions: parsed.questions.map((q, idx) => ({
+          id: `ai-${difficulty}-${Date.now()}-q${idx + 1}`,
+          type: q.type,
+          questionText: q.questionText,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+        })),
+        isAIGenerated: true,
+      };
 
-        // Validate structure
-        if (parsed.title && parsed.text && Array.isArray(parsed.questions) && parsed.questions.length === 5) {
-          // Add metadata
-          const passage = {
-            id: `ai-${difficulty}-${Date.now()}`,
-            difficulty,
-            title: parsed.title,
-            topic,
-            text: parsed.text,
-            wordCount: parsed.wordCount || parsed.text.split(/\s+/).length,
-            questions: parsed.questions.map((q: { type: string; questionText: string; options: string[]; correctAnswer: number }, idx: number) => ({
-              id: `ai-${difficulty}-${Date.now()}-q${idx + 1}`,
-              type: q.type,
-              questionText: q.questionText,
-              options: q.options,
-              correctAnswer: q.correctAnswer,
-            })),
-            isAIGenerated: true,
-          };
-
-          return NextResponse.json({ passage, source: 'ai' });
-        }
-      } catch {
-        // JSON parsing failed — fall through to fallback
-        console.log('[ai-reading] JSON parse failed, using fallback');
-      }
+      return NextResponse.json({ passage, source: aiResult.source });
     }
 
     // Fallback: return null (client will use static bank)
