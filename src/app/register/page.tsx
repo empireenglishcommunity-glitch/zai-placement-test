@@ -134,7 +134,7 @@ export default function RegisterPage() {
               >
                 <p className="font-[family-name:var(--font-sans)] text-[#8b7355] text-xs italic leading-relaxed">
                   &ldquo;By joining the Empire, I swear to undertake the Four Trials —
-                  of Voice, of the Ear, of Words, and of Structure —
+                  of Reading, of Listening, of Speaking, and of Writing —
                   and to prove my worth before the Imperial Council.&rdquo;
                 </p>
               </motion.div>

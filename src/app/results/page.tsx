@@ -59,12 +59,21 @@ const SECTIONS = [
 // ─── Component ────────────────────────────────────────────
 
 function ResultsContent() {
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const [sectionResults, setSectionResults] = useState<SectionResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Redirect if not authenticated
   useEffect(() => {
+    if (authStatus === 'unauthenticated') {
+      setError('Please log in to view your results.');
+      setLoading(false);
+    }
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return;
     async function loadResults() {
       try {
         const res = await fetch('/api/dashboard', { credentials: 'include' });
@@ -106,7 +115,7 @@ function ResultsContent() {
       }
     }
     loadResults();
-  }, []);
+  }, [authStatus]);
 
   // Calculate totals
   const completedSections = sectionResults.filter(r => r.completed);
@@ -145,12 +154,23 @@ function ResultsContent() {
             <Trophy className="w-12 h-12 text-[#8b7355] mx-auto mb-4 opacity-50" />
             <h2 className="font-[family-name:var(--font-heading)] text-xl text-[#c9a84c] mb-3">No Results Yet</h2>
             <p className="text-[#8b7355] text-sm mb-6">{error}</p>
-            <Link href="/assessment">
-              <ImperialButton variant="primary" size="md" className="gap-2">
-                <span>Go to Assessment</span>
-                <ChevronRight className="w-4 h-4" />
-              </ImperialButton>
-            </Link>
+            <div className="flex flex-col gap-3">
+              {authStatus === 'unauthenticated' ? (
+                <Link href="/login">
+                  <ImperialButton variant="primary" size="md" className="gap-2 w-full">
+                    <span>Log In to View Results</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </ImperialButton>
+                </Link>
+              ) : (
+                <Link href="/assessment">
+                  <ImperialButton variant="primary" size="md" className="gap-2 w-full">
+                    <span>Go to Assessment</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </ImperialButton>
+                </Link>
+              )}
+            </div>
           </MetallicCard>
         </main>
         <Footer />

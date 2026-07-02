@@ -214,4 +214,4 @@ async function handler(req: NextRequest) {
   }
 }
 
-export const POST = withApiProtection({ rateLimit: 'ai' })(handler);
+export const POST = withApiProtection({ rateLimit: 'aiEvaluation' })(handler);
