@@ -5,36 +5,36 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { Navbar, Footer, ParticleBackground, MetallicCard, ImperialButton, SectionDivider, ImperialRankBadge, ProgressBar, TacticalPanel, GlowingBorder, TestimonialsSection, SocialMediaSection, SponsorshipSection, FounderSection } from '@/components/empire';
-import { Swords, Shield, BookOpen, Headphones } from 'lucide-react';
+import { Swords, Shield, BookOpen, Headphones, Mic, PenTool } from 'lucide-react';
 
 const trials = [
   {
-    icon: Swords,
-    title: 'Trial of Voice',
-    subtitle: 'Speaking',
-    description: 'Prove your spoken command of the language. Read aloud, respond spontaneously, and shadow the masters.',
-    color: '#cd7f32',
-  },
-  {
-    icon: Headphones,
-    title: 'Trial of the Ear',
-    subtitle: 'Listening',
-    description: 'Demonstrate your ability to understand spoken English at varying speeds — from slow march to battle speed.',
+    icon: BookOpen,
+    title: 'Trial of Reading',
+    subtitle: 'Reading',
+    description: 'Demonstrate your ability to understand academic English passages, infer meaning, and identify key ideas.',
     color: '#c9a84c',
   },
   {
-    icon: BookOpen,
-    title: 'Trial of Words',
-    subtitle: 'Vocabulary',
-    description: 'Show the breadth of your lexical knowledge across frequency bands, from foundation to elite words.',
+    icon: Headphones,
+    title: 'Trial of Listening',
+    subtitle: 'Listening',
+    description: 'Prove your comprehension of academic lectures and conversations at varying speeds and complexity.',
+    color: '#cd7f32',
+  },
+  {
+    icon: Mic,
+    title: 'Trial of Speaking',
+    subtitle: 'Speaking',
+    description: 'Express ideas clearly and fluently. Read aloud, state opinions, and summarize information verbally.',
     color: '#ff6b35',
   },
   {
-    icon: Shield,
-    title: 'Trial of Structure',
-    subtitle: 'Grammar',
-    description: 'Prove your mastery of the structural foundations of English — tenses, conditionals, and beyond.',
-    color: '#e74c3c',
+    icon: PenTool,
+    title: 'Trial of Writing',
+    subtitle: 'Writing',
+    description: 'Compose academic summaries and opinion essays with clear structure, grammar, and vocabulary.',
+    color: '#9b59b6',
   },
 ];
 
@@ -235,10 +235,10 @@ export default function Home() {
           </motion.div>
 
           <TacticalPanel className="p-6 space-y-5">
-            <ProgressBar value={65} max={100} label="Speaking" color="#cd7f32" />
-            <ProgressBar value={40} max={100} label="Listening" color="#c9a84c" />
-            <ProgressBar value={78} max={100} label="Vocabulary" color="#ff6b35" />
-            <ProgressBar value={55} max={100} label="Grammar" color="#e74c3c" />
+            <ProgressBar value={0} max={30} label="Reading" color="#c9a84c" />
+            <ProgressBar value={0} max={30} label="Listening" color="#cd7f32" />
+            <ProgressBar value={0} max={30} label="Speaking" color="#ff6b35" />
+            <ProgressBar value={0} max={30} label="Writing" color="#9b59b6" />
           </TacticalPanel>
         </div>
       </section>
