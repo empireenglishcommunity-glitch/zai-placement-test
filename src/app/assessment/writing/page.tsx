@@ -14,20 +14,11 @@ import {
   SectionDivider,
   ProgressBar,
 } from '@/components/empire';
+import { TASK1_PROMPTS, TASK2_PROMPTS, type WritingPrompt } from '@/data/writing-prompts';
 
 // ─── Types ─────────────────────────────────────────────────
 
 type Phase = 'intro' | 'task1' | 'task2' | 'evaluating' | 'results';
-
-interface WritingPrompt {
-  id: string;
-  passage?: string;
-  passageTitle?: string;
-  prompt: string;
-  minWords: number;
-  maxWords: number;
-  timeMinutes: number;
-}
 
 interface TaskScore {
   grammar: number;
@@ -40,51 +31,6 @@ interface TaskScore {
 
 
 // ─── Writing Prompts ───────────────────────────────────────
-
-const TASK1_PROMPTS: WritingPrompt[] = [
-  {
-    id: 'w-t1-1',
-    passageTitle: 'The Rise of Remote Work',
-    passage: `The COVID-19 pandemic accelerated a shift toward remote work that had been gradually building for decades. Before 2020, approximately 5 percent of full-time employees worked from home. By 2023, that figure had risen to nearly 30 percent, with another 30 percent working in hybrid arrangements. Companies discovered that many roles could be performed effectively without physical office presence, leading to reduced real estate costs and access to a wider talent pool. However, critics argue that remote work erodes company culture, makes collaboration more difficult, and can lead to employee isolation and burnout. Studies show mixed results: while productivity often increases in the short term, long-term innovation and mentorship may suffer without face-to-face interaction.`,
-    prompt: 'Summarize the main points of the passage above. Include both the benefits and drawbacks of remote work mentioned in the text. Write 150-225 words.',
-    minWords: 150,
-    maxWords: 225,
-    timeMinutes: 20,
-  },
-  {
-    id: 'w-t1-2',
-    passageTitle: 'Social Media and Mental Health',
-    passage: `Research into the relationship between social media use and mental health has produced complex and sometimes contradictory findings. A 2019 study published in the Journal of Social and Clinical Psychology found that limiting social media use to 30 minutes per day significantly reduced levels of anxiety, depression, and loneliness compared to a control group. The study attributed this to decreased social comparison and fear of missing out (FOMO). However, other researchers point out that social media also provides valuable social connection, particularly for isolated individuals and marginalized communities who may lack local support networks. The platform design itself matters: passive scrolling appears more harmful than active engagement such as commenting and messaging. Mental health professionals generally recommend mindful usage rather than complete abstinence.`,
-    prompt: 'Summarize the key findings and perspectives presented in the passage. Include both positive and negative effects discussed. Write 150-225 words.',
-    minWords: 150,
-    maxWords: 225,
-    timeMinutes: 20,
-  },
-];
-
-const TASK2_PROMPTS: WritingPrompt[] = [
-  {
-    id: 'w-t2-1',
-    prompt: 'Do you agree or disagree with the following statement? "Technology has made people less creative than they were in the past." Use specific reasons and examples to support your opinion. Write at least 300 words.',
-    minWords: 300,
-    maxWords: 600,
-    timeMinutes: 25,
-  },
-  {
-    id: 'w-t2-2',
-    prompt: 'Some people believe that university education should be free for everyone, while others argue that students should pay for their education. Which view do you support? Use specific reasons and examples to explain your position. Write at least 300 words.',
-    minWords: 300,
-    maxWords: 600,
-    timeMinutes: 25,
-  },
-  {
-    id: 'w-t2-3',
-    prompt: 'Do you agree or disagree with the following statement? "Success in life comes more from taking risks than from careful planning." Use specific reasons and examples to support your answer. Write at least 300 words.',
-    minWords: 300,
-    maxWords: 600,
-    timeMinutes: 25,
-  },
-];
 
 
 // ─── Helper: Word Counter ──────────────────────────────────

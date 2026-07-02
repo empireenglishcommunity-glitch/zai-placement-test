@@ -18,25 +18,18 @@ import { IMPERIAL_RANKS } from '@/lib/types';
 import type { ImperialLevel } from '@/lib/types';
 import { SPEAKING_LEVELS, SPEAKING_CONFIG, MODULE_INFO } from '@/lib/constants';
 
-// ─── Sample Data ───────────────────────────────────────────
+// ─── Sample Data (imported from TOEFL-style academic prompts) ─
 
-const readAloudPassages = [
-  "The empire's legacy stretches across centuries, built upon the foundations of discipline and knowledge. Every citizen who walks these halls carries the weight of tradition and the spark of innovation.",
-  'In the depths of the ancient library, scholars discovered texts that would reshape their understanding of the world. The words, though centuries old, spoke truths that resonated with the present.',
-  'The warrior stood at the crossroads, weighing the path of conquest against the road of wisdom. In the empire, strength was measured not just in battles won, but in knowledge earned.',
-];
+import { READ_ALOUD_PASSAGES, INDEPENDENT_PROMPTS, INTEGRATED_PROMPTS, SHADOWING_TEXTS, getSpeakingSet } from '@/data/speaking-prompts';
 
+// Select random set for this session
+const sessionSet = getSpeakingSet();
+const readAloudPassages = sessionSet.readAloud;
 const speakingPrompts = [
-  'Describe your daily routine and explain which part of your day you enjoy the most.',
-  'Talk about a goal you have set for yourself and what you are doing to achieve it.',
-  'Describe your favorite place and explain why it is special to you.',
+  sessionSet.independent.prompt,
+  ...INDEPENDENT_PROMPTS.filter(p => p.id !== sessionSet.independent.id).slice(0, 2).map(p => p.prompt),
 ];
-
-const shadowingTexts = [
-  'The ancient gates opened slowly, revealing a path illuminated by golden light.',
-  'Knowledge is the sharpest blade in the warrior\'s arsenal.',
-  'Through discipline and perseverance, the recruit becomes the champion.',
-];
+const shadowingTexts = sessionSet.shadowing;
 
 
 // ─── Types ─────────────────────────────────────────────────

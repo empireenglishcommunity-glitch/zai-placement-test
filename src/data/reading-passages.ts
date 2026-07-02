@@ -249,23 +249,33 @@ Nevertheless, practical applications of this research are increasingly visible. 
 
 // ─── Export ─────────────────────────────────────────────────
 
+import { EASY_PASSAGES_B2, MEDIUM_PASSAGES_B2, HARD_PASSAGES_B2 } from './reading-passages-extended';
+
 export const ALL_READING_PASSAGES: ReadingPassage[] = [
   ...EASY_PASSAGES,
+  ...EASY_PASSAGES_B2,
   ...MEDIUM_PASSAGES,
+  ...MEDIUM_PASSAGES_B2,
   ...HARD_PASSAGES,
+  ...HARD_PASSAGES_B2,
 ];
 
 export function getReadingSet(): ReadingPassage[] {
   // Select 1 passage from each difficulty level for a test
-  const easy = EASY_PASSAGES[Math.floor(Math.random() * EASY_PASSAGES.length)];
-  const medium = MEDIUM_PASSAGES[Math.floor(Math.random() * MEDIUM_PASSAGES.length)];
-  const hard = HARD_PASSAGES[Math.floor(Math.random() * HARD_PASSAGES.length)];
+  const allEasy = [...EASY_PASSAGES, ...EASY_PASSAGES_B2];
+  const allMedium = [...MEDIUM_PASSAGES, ...MEDIUM_PASSAGES_B2];
+  const allHard = [...HARD_PASSAGES, ...HARD_PASSAGES_B2];
+
+  const easy = allEasy[Math.floor(Math.random() * allEasy.length)];
+  const medium = allMedium[Math.floor(Math.random() * allMedium.length)];
+  const hard = allHard[Math.floor(Math.random() * allHard.length)];
   return [easy, medium, hard];
 }
 
 // Stats:
-// Easy passages: 2 (with 5 questions each = 10 questions)
-// Medium passages: 1 (with 5 questions = 5 questions)
-// Hard passages: 1 (with 5 questions = 5 questions)
+// Easy passages: 7 (with 5 questions each = 35 questions)
+// Medium passages: 4 (with 5 questions = 20 questions)
+// Hard passages: 3 (with 5 questions = 15 questions)
 // Per test: 3 passages × 5 questions = 15 questions total
-// More passages will be added in future updates
+// Total unique tests possible: 7 × 4 × 3 = 84 combinations
+// Students need many retakes before seeing the same test
