@@ -310,6 +310,164 @@ export const GRAMMAR_CATEGORIES: CategoryConfig[] = [
   { category: 'question_formation', count: 3 },
 ];
 
+// ─── Adaptive Difficulty Engine ─────────────────────────────
+// TOEFL-style: adjusts test length based on student performance.
+// Questions are served band-by-band. The engine decides in real-time
+// whether to continue testing or stop.
+//
+// Rules:
+// - MASTERY (≥75% in a band): Student clearly knows this level
+// - CEILING (≤25% in a band): Student has hit their limit
+// - When ceiling is reached, stop testing harder bands
+// - This makes the test 15-40 questions depending on ability
+
+export interface AdaptiveConfig {
+  /** Min correct % to consider a band "mastered" */
+  masteryThreshold: number;
+  /** Max correct % below which we hit "ceiling" */
+  ceilingThreshold: number;
+  /** Number of questions per band (for vocabulary) */
+  questionsPerBand: number;
+  /** Ordered list of bands from easiest to hardest */
+  bandOrder: string[];
+}
+
+export interface AdaptiveBandResult {
+  band: string;
+  correct: number;
+  total: number;
+  percentage: number;
+  status: 'mastered' | 'developing' | 'ceiling';
+}
+
+export interface AdaptiveDecision {
+  /** Should we continue to the next band? */
+  continueToNextBand: boolean;
+  /** The band results so far */
+  bandResults: AdaptiveBandResult[];
+  /** The highest band where student showed mastery */
+  highestMasteredBand: string | null;
+  /** The band where ceiling was hit (if any) */
+  ceilingBand: string | null;
+  /** Total questions answered */
+  totalAnswered: number;
+  /** Total correct */
+  totalCorrect: number;
+  /** Is the assessment complete? */
+  isComplete: boolean;
+  /** Estimated vocabulary size based on adaptive results */
+  estimatedVocabSize: number;
+}
+
+export const VOCAB_ADAPTIVE_CONFIG: AdaptiveConfig = {
+  masteryThreshold: 75, // 6/8 or better = mastery
+  ceilingThreshold: 25, // 2/8 or worse = ceiling
+  questionsPerBand: 8,
+  bandOrder: ['1-500', '501-1000', '1001-2000', '2001-3000', '3001-5000'],
+};
+
+const VOCAB_SIZE_BY_BAND: Record<string, number> = {
+  '1-500': 500,
+  '501-1000': 1000,
+  '1001-2000': 2000,
+  '2001-3000': 3000,
+  '3001-5000': 5000,
+};
+
+/**
+ * Evaluates adaptive progress after each band is completed.
+ * Called by the client after finishing all questions in a band.
+ * Returns whether to continue to the next band or stop.
+ */
+export function evaluateAdaptiveProgress(
+  bandResults: AdaptiveBandResult[],
+  config: AdaptiveConfig = VOCAB_ADAPTIVE_CONFIG,
+): AdaptiveDecision {
+  const totalAnswered = bandResults.reduce((sum, b) => sum + b.total, 0);
+  const totalCorrect = bandResults.reduce((sum, b) => sum + b.correct, 0);
+
+  // Determine status for each band
+  const processedResults: AdaptiveBandResult[] = bandResults.map(b => ({
+    ...b,
+    status: b.percentage >= config.masteryThreshold ? 'mastered'
+      : b.percentage <= config.ceilingThreshold ? 'ceiling'
+      : 'developing',
+  }));
+
+  // Find highest mastered band
+  let highestMasteredBand: string | null = null;
+  for (const result of processedResults) {
+    if (result.status === 'mastered') {
+      highestMasteredBand = result.band;
+    }
+  }
+
+  // Check if ceiling was hit
+  let ceilingBand: string | null = null;
+  const lastResult = processedResults[processedResults.length - 1];
+  if (lastResult && lastResult.status === 'ceiling') {
+    ceilingBand = lastResult.band;
+  }
+
+  // Decision: continue or stop?
+  let continueToNextBand = true;
+  let isComplete = false;
+
+  // If we hit ceiling, STOP — don't test harder bands
+  if (ceilingBand) {
+    continueToNextBand = false;
+    isComplete = true;
+  }
+
+  // If we've tested all bands, we're done
+  const currentBandIndex = config.bandOrder.indexOf(lastResult?.band ?? '');
+  if (currentBandIndex >= config.bandOrder.length - 1) {
+    continueToNextBand = false;
+    isComplete = true;
+  }
+
+  // Estimate vocabulary size based on results
+  let estimatedVocabSize = 250; // minimum baseline
+  for (const result of processedResults) {
+    if (result.percentage > 50) {
+      estimatedVocabSize = VOCAB_SIZE_BY_BAND[result.band] ?? estimatedVocabSize;
+    }
+  }
+
+  return {
+    continueToNextBand,
+    bandResults: processedResults,
+    highestMasteredBand,
+    ceilingBand,
+    totalAnswered,
+    totalCorrect,
+    isComplete,
+    estimatedVocabSize,
+  };
+}
+
+/**
+ * Determines which bands to include in the initial question set.
+ * For adaptive mode, we load ALL bands upfront but the client
+ * decides when to stop based on evaluateAdaptiveProgress().
+ *
+ * For the session API, questions are grouped and tagged by band
+ * so the client can serve them band-by-band and check after each.
+ */
+export function getAdaptiveQuestionPlan(config: AdaptiveConfig = VOCAB_ADAPTIVE_CONFIG): {
+  bands: string[];
+  questionsPerBand: number;
+  totalMaxQuestions: number;
+  adaptiveMode: boolean;
+} {
+  return {
+    bands: config.bandOrder,
+    questionsPerBand: config.questionsPerBand,
+    totalMaxQuestions: config.bandOrder.length * config.questionsPerBand,
+    adaptiveMode: true,
+  };
+}
+
 // ─── Retake Cooldown Check ─────────────────────────────────
 // Prevents rapid-fire retakes (minimum 5 minutes between attempts)
 

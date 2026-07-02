@@ -23,6 +23,8 @@ import {
 } from '@/components/empire';
 import { VOCABULARY_CONFIG, VOCABULARY_LEVELS, MODULE_INFO, EMPIRE_COLORS } from '@/lib/constants';
 import { IMPERIAL_RANKS, IMPERIAL_RANK_DESCRIPTIONS } from '@/lib/types';
+import { evaluateAdaptiveProgress, VOCAB_ADAPTIVE_CONFIG } from '@/services/assessment-engine';
+import type { AdaptiveBandResult } from '@/services/assessment-engine';
 import type { VocabularyBand, ImperialLevel } from '@/lib/types';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -264,19 +266,56 @@ export default function VocabularyAssessmentPage() {
 
     setAnswers(prev => [...prev, newAnswer]);
 
-    // Move to next question immediately (no reveal phase for skips)
+    // Check if this was the last question in the test
     if (currentIndex + 1 >= questions.length) {
-      // This was the last question — trigger results via state
-      // We set isAnswered to signal end, then useEffect below handles it
       setIsAnswered(true);
-      setSelectedOption(-1); // marker for "was skipped as last question"
+      setSelectedOption(-1);
     } else {
+      // Check adaptive: did we just finish a band?
+      const nextIndex = currentIndex + 1;
+      const questionsPerBand = VOCAB_ADAPTIVE_CONFIG.questionsPerBand;
+      const justFinishedBandIndex = Math.floor(currentIndex / questionsPerBand);
+      const nextBandIndex = Math.floor(nextIndex / questionsPerBand);
+
+      if (nextBandIndex > justFinishedBandIndex) {
+        // Evaluate with the new answer included
+        const allAnswers = [...answers, newAnswer];
+        const bandOrder = VOCAB_ADAPTIVE_CONFIG.bandOrder;
+        const completedBands: AdaptiveBandResult[] = [];
+
+        for (let b = 0; b <= justFinishedBandIndex && b < bandOrder.length; b++) {
+          const bandTopic = bandOrder[b];
+          const bandQuestions = questions.slice(b * questionsPerBand, (b + 1) * questionsPerBand);
+          const bandAnswered = allAnswers.filter(a =>
+            bandQuestions.some(q => q.id === a.questionId)
+          );
+          const correct = bandAnswered.filter(a => a.isCorrect).length;
+          const total = bandAnswered.length;
+          completedBands.push({
+            band: bandTopic,
+            correct,
+            total,
+            percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
+            status: 'developing',
+          });
+        }
+
+        const decision = evaluateAdaptiveProgress(completedBands);
+        if (!decision.continueToNextBand) {
+          // Ceiling hit — trigger results
+          setIsAnswered(true);
+          setSelectedOption(-1);
+          return;
+        }
+      }
+
+      // Continue to next question
       setCurrentIndex(prev => prev + 1);
       setSelectedOption(null);
       setIsAnswered(false);
       startTimer();
     }
-  }, [isAnswered, questions, currentIndex, startTimer]);
+  }, [isAnswered, questions, currentIndex, answers, startTimer]);
 
   // ─── Select Option ───────────────────────────────────────
 
@@ -349,19 +388,22 @@ export default function VocabularyAssessmentPage() {
   const calculateResults = useCallback(() => {
     stopTimer();
 
+    // With adaptive mode, we may not have answered all questions
+    // Only count questions that were actually answered
+    const answeredCount = answers.length;
     const totalCorrect = answers.filter(a => a.isCorrect).length;
     const totalSkipped = answers.filter(a => a.selectedAnswer === -1).length;
-    const score = Math.round((totalCorrect / questions.length) * 100);
+    const score = answeredCount > 0 ? Math.round((totalCorrect / answeredCount) * 100) : 0;
     setOverallScore(score);
 
-    // Per-band scores
+    // Per-band scores (only bands that were actually tested)
     const results: BandResult[] = BAND_ORDER.map(band => {
       const bandQuestions = questions.filter(q => q.topic === band);
       const bandAnswers = answers.filter(a =>
         bandQuestions.some(q => q.id === a.questionId)
       );
       const correct = bandAnswers.filter(a => a.isCorrect).length;
-      const total = bandQuestions.length;
+      const total = bandAnswers.length; // Only count answered questions, not all loaded
       return {
         band,
         label: VOCABULARY_CONFIG.bands[band].label,
@@ -369,7 +411,7 @@ export default function VocabularyAssessmentPage() {
         total,
         percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
       };
-    });
+    }).filter(r => r.total > 0); // Only show bands that were tested
     setBandResults(results);
 
     // Estimate vocabulary size: highest band with >50% correct
@@ -435,15 +477,53 @@ export default function VocabularyAssessmentPage() {
 
   const handleNextQuestion = useCallback(() => {
     if (currentIndex + 1 >= questions.length) {
-      // Calculate results
+      // All questions answered — calculate results
       calculateResults();
     } else {
+      // Check if we just completed a band (every 8 questions = 1 band)
+      const nextIndex = currentIndex + 1;
+      const questionsPerBand = VOCAB_ADAPTIVE_CONFIG.questionsPerBand;
+      const justFinishedBandIndex = Math.floor(currentIndex / questionsPerBand);
+      const nextBandIndex = Math.floor(nextIndex / questionsPerBand);
+
+      // If we're crossing into a new band, evaluate adaptive progress
+      if (nextBandIndex > justFinishedBandIndex && answers.length > 0) {
+        const bandOrder = VOCAB_ADAPTIVE_CONFIG.bandOrder;
+        const completedBands: AdaptiveBandResult[] = [];
+
+        for (let b = 0; b <= justFinishedBandIndex && b < bandOrder.length; b++) {
+          const bandTopic = bandOrder[b];
+          const bandQuestions = questions.slice(b * questionsPerBand, (b + 1) * questionsPerBand);
+          const bandAnswers = answers.filter(a =>
+            bandQuestions.some(q => q.id === a.questionId)
+          );
+          const correct = bandAnswers.filter(a => a.isCorrect).length;
+          const total = bandQuestions.length;
+          completedBands.push({
+            band: bandTopic,
+            correct,
+            total,
+            percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
+            status: 'developing', // evaluateAdaptiveProgress will set this
+          });
+        }
+
+        const decision = evaluateAdaptiveProgress(completedBands);
+
+        // If ceiling hit — stop the test early
+        if (!decision.continueToNextBand) {
+          calculateResults();
+          return;
+        }
+      }
+
+      // Continue to next question
       setCurrentIndex(prev => prev + 1);
       setSelectedOption(null);
       setIsAnswered(false);
       startTimer();
     }
-  }, [currentIndex, questions, calculateResults, startTimer]);
+  }, [currentIndex, questions, answers, calculateResults, startTimer]);
 
   // ─── Current Question Info ───────────────────────────────
 
@@ -756,7 +836,11 @@ export default function VocabularyAssessmentPage() {
                   </span>
                   <span className="text-[rgba(201,168,76,0.3)]">|</span>
                   <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wide">
-                    {questions.length - currentIndex - 1} remaining
+                    {questions.length - currentIndex - 1} max remaining
+                  </span>
+                  {/* Adaptive indicator */}
+                  <span className="font-[family-name:var(--font-heading)] text-[#4ade80] text-[10px] px-1.5 py-0.5 rounded border border-[rgba(74,222,128,0.3)] bg-[rgba(74,222,128,0.05)] tracking-wider uppercase">
+                    Adaptive
                   </span>
                 </div>
                 <div className="flex items-center gap-4">
@@ -1098,7 +1182,10 @@ export default function VocabularyAssessmentPage() {
                         {overallScore}%
                       </p>
                       <p className="text-[#8b7355] text-xs mt-1 font-[family-name:var(--font-sans)]">
-                        {answers.filter(a => a.isCorrect).length} of {questions.length} correct
+                        {answers.filter(a => a.isCorrect).length} of {answers.length} correct
+                        {answers.length < questions.length && (
+                          <span className="text-[#4ade80]"> (adaptive: {questions.length - answers.length} skipped by engine)</span>
+                        )}
                       </p>
                     </div>
                   </div>
