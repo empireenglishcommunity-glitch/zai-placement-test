@@ -133,6 +133,12 @@ export default function DashboardPage() {
     }
 
     loadDashboard();
+
+    // Auto-refresh every 30 seconds when page is visible
+    const interval = setInterval(() => {
+      if (!document.hidden) loadDashboard();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [authStatus, session]);
 
   // ─── Loading ────────────────────────────────────────────

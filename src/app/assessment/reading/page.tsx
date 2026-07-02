@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Clock, ChevronRight, BookOpen, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
@@ -37,6 +37,34 @@ export default function ReadingAssessmentPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
+
+  // Timer per passage
+  const [timeLeft, setTimeLeft] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const PASSAGE_TIME = { easy: 7 * 60, medium: 10 * 60, hard: 14 * 60 }; // seconds
+
+  const startPassageTimer = useCallback((difficulty: 'easy' | 'medium' | 'hard') => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    const seconds = PASSAGE_TIME[difficulty];
+    setTimeLeft(seconds);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
+
+  const formatTimer = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   // ─── Start Trial ─────────────────────────────────────────
 
@@ -75,7 +103,9 @@ export default function ReadingAssessmentPage() {
     setSelectedOption(null);
     setIsAnswered(false);
     setPhase('reading');
-  }, []);
+    // Start timer for first passage
+    if (finalPassages[0]) startPassageTimer(finalPassages[0].difficulty);
+  }, [startPassageTimer]);
 
   // ─── Answer Selection ────────────────────────────────────
 
@@ -108,6 +138,8 @@ export default function ReadingAssessmentPage() {
     } else if (currentPassageIndex + 1 < passages.length) {
       setCurrentPassageIndex(prev => prev + 1);
       setCurrentQuestionIndex(0);
+      // Start timer for next passage
+      startPassageTimer(passages[currentPassageIndex + 1].difficulty);
     } else {
       // All done — calculate score
       const totalCorrect = [...answers].filter(a => a.isCorrect).length;
@@ -238,9 +270,22 @@ export default function ReadingAssessmentPage() {
                     Q{currentQuestionIndex + 1} of {currentPassage.questions.length}
                   </span>
                 </div>
-                <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs">
-                  {answeredSoFar}/{totalQuestions} total
-                </span>
+                <div className="flex items-center gap-3">
+                  {/* Passage timer */}
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${
+                    timeLeft <= 60 && timeLeft > 0 ? 'border-[rgba(231,76,60,0.4)] bg-[rgba(231,76,60,0.05)]'
+                    : timeLeft <= 120 ? 'border-[rgba(255,107,53,0.4)] bg-[rgba(255,107,53,0.05)]'
+                    : 'border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.03)]'
+                  }`}>
+                    <Clock className={`w-3.5 h-3.5 ${timeLeft <= 60 && timeLeft > 0 ? 'text-[#e74c3c]' : timeLeft <= 120 ? 'text-[#ff6b35]' : 'text-[#c9a84c]'}`} />
+                    <span className={`font-[family-name:var(--font-heading)] text-xs tabular-nums ${timeLeft <= 60 && timeLeft > 0 ? 'text-[#e74c3c]' : timeLeft <= 120 ? 'text-[#ff6b35]' : 'text-[#c9a84c]'}`}>
+                      {timeLeft === 0 ? 'TIME' : formatTimer(timeLeft)}
+                    </span>
+                  </div>
+                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs">
+                    {answeredSoFar}/{totalQuestions} total
+                  </span>
+                </div>
               </div>
               <ProgressBar value={answeredSoFar + 1} max={totalQuestions} showPercentage={false} color={difficultyColors[currentPassage.difficulty]} size="sm" />
             </motion.div>

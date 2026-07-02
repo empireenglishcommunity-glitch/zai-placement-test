@@ -53,6 +53,35 @@ export default function WritingAssessmentPage() {
   const [task2Score, setTask2Score] = useState<TaskScore | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
+  // ─── Auto-save to sessionStorage (every 30s) ─────────────
+
+  useEffect(() => {
+    // Restore on mount
+    if (typeof window !== 'undefined') {
+      const saved1 = sessionStorage.getItem('empire-writing-task1');
+      const saved2 = sessionStorage.getItem('empire-writing-task2');
+      if (saved1 && !task1Text) setTask1Text(saved1);
+      if (saved2 && !task2Text) setTask2Text(saved2);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const interval = setInterval(() => {
+      if (task1Text) sessionStorage.setItem('empire-writing-task1', task1Text);
+      if (task2Text) sessionStorage.setItem('empire-writing-task2', task2Text);
+    }, 30000); // Save every 30 seconds
+    return () => clearInterval(interval);
+  }, [task1Text, task2Text]);
+
+  // Clear saved text when submitting
+  const clearAutoSave = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('empire-writing-task1');
+      sessionStorage.removeItem('empire-writing-task2');
+    }
+  };
+
   // ─── Timer ───────────────────────────────────────────────
 
   const startTimer = useCallback((minutes: number) => {
@@ -104,6 +133,7 @@ export default function WritingAssessmentPage() {
 
   const handleSubmitTask2 = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    clearAutoSave();
     setPhase('evaluating');
     setIsEvaluating(true);
 
