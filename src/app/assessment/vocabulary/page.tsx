@@ -246,6 +246,38 @@ export default function VocabularyAssessmentPage() {
     }
   }, [startTimer, isResumed, questions.length, sessionId]);
 
+  // ─── Skip / "I Don't Know" ─────────────────────────────────
+
+  const handleSkipQuestion = useCallback(() => {
+    if (isAnswered) return;
+
+    const question = questions[currentIndex];
+    const timeTaken = Date.now() - questionStartRef.current;
+
+    // Record as skipped (selectedAnswer = -1, isCorrect = false)
+    const newAnswer: Answer = {
+      questionId: question.id,
+      selectedAnswer: -1,
+      isCorrect: false,
+      timeTaken,
+    };
+
+    setAnswers(prev => [...prev, newAnswer]);
+
+    // Move to next question immediately (no reveal phase for skips)
+    if (currentIndex + 1 >= questions.length) {
+      // This was the last question — trigger results via state
+      // We set isAnswered to signal end, then useEffect below handles it
+      setIsAnswered(true);
+      setSelectedOption(-1); // marker for "was skipped as last question"
+    } else {
+      setCurrentIndex(prev => prev + 1);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      startTimer();
+    }
+  }, [isAnswered, questions, currentIndex, startTimer]);
+
   // ─── Select Option ───────────────────────────────────────
 
   const handleSelectOption = useCallback((optionIndex: number) => {
@@ -318,6 +350,7 @@ export default function VocabularyAssessmentPage() {
     stopTimer();
 
     const totalCorrect = answers.filter(a => a.isCorrect).length;
+    const totalSkipped = answers.filter(a => a.selectedAnswer === -1).length;
     const score = Math.round((totalCorrect / questions.length) * 100);
     setOverallScore(score);
 
@@ -365,6 +398,20 @@ export default function VocabularyAssessmentPage() {
     // Submit to API
     submitResults(score, results, estimatedSize, level);
   }, [answers, questions, stopTimer, submitResults]);
+
+  // ─── Effect: Trigger results when last question was skipped ──
+
+  useEffect(() => {
+    if (
+      selectedOption === -1 &&
+      isAnswered &&
+      answers.length === questions.length &&
+      questions.length > 0 &&
+      phase === 'questions'
+    ) {
+      calculateResults();
+    }
+  }, [selectedOption, isAnswered, answers.length, questions.length, phase, calculateResults]);
 
   // ─── Confirm & Next ──────────────────────────────────────
 
@@ -536,7 +583,43 @@ export default function VocabularyAssessmentPage() {
 
             <SectionDivider />
 
-            {/* Band Overview */}
+            {/* Assessment Rules — TOEFL-style pre-trial instructions */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.35 }}
+            >
+              <MetallicCard className="p-5 sm:p-6" hover={false} glowOnHover={false}>
+                <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm uppercase tracking-widest mb-4 text-center">
+                  Assessment Rules
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm font-[family-name:var(--font-sans)]">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#4ade80] mt-0.5">✓</span>
+                    <span className="text-[#c0c0c0]">Select the best definition for each word</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#4ade80] mt-0.5">✓</span>
+                    <span className="text-[#c0c0c0]">Use &ldquo;I Don&apos;t Know&rdquo; if you are unsure</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#e74c3c] mt-0.5">✗</span>
+                    <span className="text-[#c0c0c0]">Do not guess randomly — it hurts accuracy</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#e74c3c] mt-0.5">✗</span>
+                    <span className="text-[#c0c0c0]">Do not use a dictionary or translator</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-[rgba(201,168,76,0.1)]">
+                  <p className="font-arabic text-[#8b7355] text-xs text-center leading-relaxed" dir="rtl">
+                    اختر المعنى الصحيح لكل كلمة. إذا لم تعرف الإجابة، اضغط &ldquo;لا أعرف&rdquo; — التخمين العشوائي يؤثر سلبياً على دقة نتائجك.
+                  </p>
+                </div>
+              </MetallicCard>
+            </motion.div>
+
+            <SectionDivider />
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -659,29 +742,50 @@ export default function VocabularyAssessmentPage() {
           <div className="max-w-3xl mx-auto px-4 sm:px-6">
             {/* Active Assessment Banner */}
             <LegalNotice variant="banner" />
-            {/* Header: Progress + Timer */}
+            {/* Header: Progress + Timer + Stats */}
             <motion.div
               className="mb-6"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="flex items-center justify-between mb-3">
+              {/* Top row: Question counter + Timer */}
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-sm">
-                    Question {currentIndex + 1}
+                  <span className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm font-bold">
+                    Q{currentIndex + 1}
                   </span>
                   <span className="text-[rgba(201,168,76,0.3)]">|</span>
-                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-sm">
-                    {questions.length} Total
+                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wide">
+                    {questions.length - currentIndex - 1} remaining
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-[#c9a84c]">
-                  <Clock className="w-4 h-4" />
-                  <span className="font-[family-name:var(--font-heading)] text-sm tabular-nums">
-                    {formatTime(elapsedTime)}
-                  </span>
+                <div className="flex items-center gap-4">
+                  {/* Skipped counter */}
+                  {answers.filter(a => a.selectedAnswer === -1).length > 0 && (
+                    <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs px-2 py-0.5 rounded border border-[rgba(139,115,85,0.3)] bg-[rgba(139,115,85,0.05)]">
+                      {answers.filter(a => a.selectedAnswer === -1).length} skipped
+                    </span>
+                  )}
+                  {/* Timer with urgency colors */}
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${
+                    elapsedTime > 30 
+                      ? 'border-[rgba(231,76,60,0.4)] bg-[rgba(231,76,60,0.05)]' 
+                      : elapsedTime > 15 
+                        ? 'border-[rgba(255,107,53,0.4)] bg-[rgba(255,107,53,0.05)]'
+                        : 'border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.03)]'
+                  }`}>
+                    <Clock className={`w-3.5 h-3.5 ${
+                      elapsedTime > 30 ? 'text-[#e74c3c]' : elapsedTime > 15 ? 'text-[#ff6b35]' : 'text-[#c9a84c]'
+                    }`} />
+                    <span className={`font-[family-name:var(--font-heading)] text-xs tabular-nums ${
+                      elapsedTime > 30 ? 'text-[#e74c3c]' : elapsedTime > 15 ? 'text-[#ff6b35]' : 'text-[#c9a84c]'
+                    }`}>
+                      {formatTime(elapsedTime)}
+                    </span>
+                  </div>
                 </div>
               </div>
+              {/* Progress bar */}
               <ProgressBar
                 value={currentIndex + 1}
                 max={questions.length}
@@ -842,19 +946,38 @@ export default function VocabularyAssessmentPage() {
                   </motion.div>
                 </div>
 
-                {/* Action Button */}
-                <div className="flex justify-center">
+                {/* Action Buttons */}
+                <div className="flex flex-col items-center gap-3">
                   {!isAnswered ? (
-                    <ImperialButton
-                      variant="primary"
-                      size="lg"
-                      onClick={handleConfirmAnswer}
-                      disabled={selectedOption === null}
-                      className="gap-2 min-w-[200px]"
-                    >
-                      <span>Confirm Answer</span>
-                      <Shield className="w-5 h-5" />
-                    </ImperialButton>
+                    <>
+                      <ImperialButton
+                        variant="primary"
+                        size="lg"
+                        onClick={handleConfirmAnswer}
+                        disabled={selectedOption === null}
+                        className="gap-2 min-w-[200px]"
+                      >
+                        <span>Confirm Answer</span>
+                        <Shield className="w-5 h-5" />
+                      </ImperialButton>
+                      {/* Skip / I Don't Know Button */}
+                      <button
+                        type="button"
+                        onClick={handleSkipQuestion}
+                        className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[rgba(139,115,85,0.3)] bg-[rgba(139,115,85,0.05)] hover:border-[rgba(139,115,85,0.5)] hover:bg-[rgba(139,115,85,0.1)] transition-all duration-200"
+                      >
+                        <ChevronRight className="w-4 h-4 text-[#8b7355] group-hover:text-[#c9a84c] transition-colors" />
+                        <span className="font-[family-name:var(--font-heading)] text-sm text-[#8b7355] group-hover:text-[#c9a84c] tracking-wide transition-colors">
+                          I Don&apos;t Know
+                        </span>
+                        <span className="font-arabic text-xs text-[#8b7355] group-hover:text-[#c9a84c] transition-colors" dir="rtl">
+                          لا أعرف
+                        </span>
+                      </button>
+                      <p className="text-[#8b7355] text-[10px] font-[family-name:var(--font-sans)] text-center max-w-[280px]">
+                        It&apos;s okay to skip — guessing won&apos;t help your score. Only answer if you genuinely know.
+                      </p>
+                    </>
                   ) : (
                     <ImperialButton
                       variant={isLastQuestion ? 'primary' : 'secondary'}
@@ -982,6 +1105,52 @@ export default function VocabularyAssessmentPage() {
                 </MetallicCard>
               </GlowingBorder>
             </motion.div>
+
+            {/* Response Confidence Summary */}
+            {answers.filter(a => a.selectedAnswer === -1).length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="mt-4"
+              >
+                <MetallicCard className="p-4 sm:p-5" hover={false} glowOnHover={false}>
+                  <div className="flex items-center justify-center gap-6 text-center">
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#4ade80] text-lg font-bold">
+                        {answers.filter(a => a.selectedAnswer !== -1).length}
+                      </p>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-[10px] uppercase tracking-widest">
+                        Answered
+                      </p>
+                    </div>
+                    <div className="w-px h-8 bg-[rgba(201,168,76,0.15)]" />
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-lg font-bold">
+                        {answers.filter(a => a.selectedAnswer === -1).length}
+                      </p>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-[10px] uppercase tracking-widest">
+                        Skipped
+                      </p>
+                    </div>
+                    <div className="w-px h-8 bg-[rgba(201,168,76,0.15)]" />
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-lg font-bold">
+                        {answers.filter(a => a.selectedAnswer !== -1).length > 0 
+                          ? Math.round((answers.filter(a => a.isCorrect).length / answers.filter(a => a.selectedAnswer !== -1).length) * 100) 
+                          : 0}%
+                      </p>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-[10px] uppercase tracking-widest">
+                        Accuracy (answered only)
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[#8b7355] text-[10px] text-center mt-3 font-[family-name:var(--font-sans)]">
+                    Skipped questions are scored as incorrect. Your accuracy on answered questions reflects true knowledge.
+                  </p>
+                </MetallicCard>
+              </motion.div>
+            )}
 
             <SectionDivider />
 
