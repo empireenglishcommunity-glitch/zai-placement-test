@@ -248,3 +248,68 @@ export function calculateAttemptAwareLevel(input: AttemptAwareInput): AttemptAwa
     scoreInterpretation: weightedResult.interpretation,
   };
 }
+
+
+
+// ═══════════════════════════════════════════════════════════
+// TOEFL-EQUIVALENT SCORING ENGINE (0-120)
+// 4 sections × 0-30 = 0-120 total
+// ═══════════════════════════════════════════════════════════
+
+import type { TOEFLTotalScore, TOEFLSection } from '@/lib/types';
+import { getSectionLevel, getTotalLevel } from '@/lib/types';
+
+export interface TOEFLSectionInput {
+  section: TOEFLSection;
+  score: number; // 0-30
+}
+
+/**
+ * Calculate the full TOEFL-equivalent score from 4 section scores.
+ * Each section is 0-30, total is 0-120.
+ */
+export function calculateTOEFLScore(sections: TOEFLSectionInput[]): TOEFLTotalScore {
+  const scores: Record<TOEFLSection, number> = {
+    reading: 0,
+    listening: 0,
+    speaking: 0,
+    writing: 0,
+  };
+
+  for (const s of sections) {
+    scores[s.section] = Math.max(0, Math.min(30, Math.round(s.score)));
+  }
+
+  const total = scores.reading + scores.listening + scores.speaking + scores.writing;
+  const { level, cefr } = getTotalLevel(total);
+
+  return {
+    reading: scores.reading,
+    listening: scores.listening,
+    speaking: scores.speaking,
+    writing: scores.writing,
+    total,
+    imperialLevel: level,
+    cefr,
+  };
+}
+
+/**
+ * Convert a raw percentage (0-100) to a 0-30 TOEFL section score.
+ * Uses a slight curve to match TOEFL scoring patterns.
+ */
+export function percentageToSectionScore(percentage: number): number {
+  // Linear mapping: 0-100% → 0-30
+  // With slight floor at 0 and ceiling at 30
+  return Math.max(0, Math.min(30, Math.round((percentage / 100) * 30)));
+}
+
+/**
+ * Get a descriptive label for a section score.
+ */
+export function getSectionScoreLabel(score: number): string {
+  if (score >= 24) return 'Advanced';
+  if (score >= 15) return 'Intermediate';
+  if (score >= 8) return 'Basic';
+  return 'Below Basic';
+}

@@ -98,19 +98,34 @@ export const GRAMMAR_CONFIG = {
 
 // ─── Module Names & Descriptions ───────────────────────────
 
+// ─── Module Names & Descriptions ───────────────────────────
+
 export const MODULE_INFO = {
-  speaking: {
-    name: 'Trial of Voice',
-    icon: '🎤',
-    description: 'Prove your spoken command of the language. Read, respond, and shadow.',
-    empireTitle: 'The Oratory Trial',
+  reading: {
+    name: 'Trial of Reading',
+    icon: '📖',
+    description: 'Demonstrate your ability to understand written English at an academic level.',
+    empireTitle: 'The Comprehension Trial',
   },
   listening: {
-    name: 'Trial of the Ear',
+    name: 'Trial of Listening',
     icon: '👂',
-    description: 'Demonstrate your ability to understand spoken English at varying speeds.',
+    description: 'Prove your ability to understand spoken English in academic contexts.',
     empireTitle: 'The Perception Trial',
   },
+  speaking: {
+    name: 'Trial of Speaking',
+    icon: '🎤',
+    description: 'Demonstrate your spoken English fluency, coherence, and pronunciation.',
+    empireTitle: 'The Oratory Trial',
+  },
+  writing: {
+    name: 'Trial of Writing',
+    icon: '✍️',
+    description: 'Prove your ability to express ideas clearly in written English.',
+    empireTitle: 'The Inscription Trial',
+  },
+  // Legacy (kept for backward compatibility with old pages)
   vocabulary: {
     name: 'Trial of Words',
     icon: '📖',
@@ -130,7 +145,7 @@ export const MODULE_INFO = {
 export const NAV_ITEMS = [
   { label: 'Hall', href: '/', icon: 'home' },
   { label: 'Dashboard', href: '/dashboard', icon: 'shield' },
-  { label: 'Trials', href: '/assessment', icon: 'swords' },
+  { label: 'Assessment', href: '/assessment', icon: 'swords' },
   { label: 'Results', href: '/results', icon: 'scroll' },
 ] as const;
 
