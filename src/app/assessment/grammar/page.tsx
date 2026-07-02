@@ -198,6 +198,52 @@ export default function GrammarAssessmentPage() {
     setIsAnswered(true);
   };
 
+  // Skip / "I Don't Know" — counts as incorrect, moves to next
+  const handleSkipQuestion = () => {
+    if (isAnswered) return;
+
+    const currentQ = questions[currentIndex];
+    const newAnswer: AnswerRecord = {
+      questionId: currentQ.id,
+      selectedAnswer: -1,
+      isCorrect: false,
+      timeTaken: 0,
+    };
+
+    const allAnswers = [...answers, newAnswer];
+    setAnswers(allAnswers);
+
+    if (currentIndex + 1 >= questions.length) {
+      calculateResults(allAnswers, questions);
+      setPhase('results');
+      if (sessionId) completeSession(sessionId);
+      // Submit scores
+      const totalCorrect = allAnswers.filter(a => a.isCorrect).length;
+      const pct = Math.round((totalCorrect / questions.length) * 100);
+      const lvl = pct <= 35 ? 0 : pct <= 60 ? 1 : pct <= 80 ? 2 : 3;
+      fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          module: 'grammar',
+          userId: getUserId(),
+          answers: allAnswers.map(a => ({
+            questionId: a.questionId,
+            selectedAnswer: a.selectedAnswer,
+            isCorrect: a.isCorrect,
+            timeTaken: a.timeTaken,
+          })),
+          scores: { percentage: pct, overall: pct, level: lvl },
+        }),
+      }).catch(() => {});
+    } else {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedOption(null);
+      setIsAnswered(false);
+    }
+  };
+
   // Complete session on the server
   const completeSession = useCallback(async (sId: string) => {
     try {
@@ -383,6 +429,43 @@ export default function GrammarAssessmentPage() {
             </GlowingBorder>
           </motion.div>
 
+          {/* Assessment Rules — TOEFL-style */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="mt-6"
+          >
+            <MetallicCard hover={false} className="p-5">
+              <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm uppercase tracking-widest mb-4 text-center">
+                Assessment Rules
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm font-[family-name:var(--font-sans)]">
+                <div className="flex items-start gap-2">
+                  <span className="text-[#4ade80] mt-0.5">✓</span>
+                  <span className="text-[#c0c0c0]">Choose the most grammatically correct option</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[#4ade80] mt-0.5">✓</span>
+                  <span className="text-[#c0c0c0]">Use &ldquo;I Don&apos;t Know&rdquo; if you are unsure</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[#e74c3c] mt-0.5">✗</span>
+                  <span className="text-[#c0c0c0]">Do not guess randomly — it hurts accuracy</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[#e74c3c] mt-0.5">✗</span>
+                  <span className="text-[#c0c0c0]">Do not use any external grammar tools</span>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-[rgba(201,168,76,0.1)]">
+                <p className="font-arabic text-[#8b7355] text-xs text-center leading-relaxed" dir="rtl">
+                  اختر الإجابة الصحيحة نحوياً. إذا لم تعرف، اضغط &ldquo;لا أعرف&rdquo; — التخمين يضر بدقة مستواك.
+                </p>
+              </div>
+            </MetallicCard>
+          </motion.div>
+
           {/* Topics */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -496,12 +579,32 @@ export default function GrammarAssessmentPage() {
 
         <main className="flex-1 pt-20 pb-12 px-4 relative z-10">
           <div className="max-w-2xl mx-auto">
-            {/* Progress Bar */}
+            {/* Progress Bar + Stats */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mb-6"
             >
+              {/* Top row: Question counter + Skipped + Timer feel */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm font-bold">
+                    Q{currentIndex + 1}
+                  </span>
+                  <span className="text-[rgba(201,168,76,0.3)]">|</span>
+                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs tracking-wide">
+                    {questions.length - currentIndex - 1} remaining
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Skipped counter */}
+                  {answers.filter(a => a.selectedAnswer === -1).length > 0 && (
+                    <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs px-2 py-0.5 rounded border border-[rgba(139,115,85,0.3)] bg-[rgba(139,115,85,0.05)]">
+                      {answers.filter(a => a.selectedAnswer === -1).length} skipped
+                    </span>
+                  )}
+                </div>
+              </div>
               <ProgressBar
                 value={currentIndex + 1}
                 max={questions.length}
@@ -635,6 +738,28 @@ export default function GrammarAssessmentPage() {
                         );
                       })}
                     </div>
+
+                    {/* Skip / I Don't Know Button */}
+                    {!isAnswered && (
+                      <div className="mt-5 flex flex-col items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSkipQuestion}
+                          className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[rgba(139,115,85,0.3)] bg-[rgba(139,115,85,0.05)] hover:border-[rgba(139,115,85,0.5)] hover:bg-[rgba(139,115,85,0.1)] transition-all duration-200"
+                        >
+                          <ChevronRight className="w-4 h-4 text-[#8b7355] group-hover:text-[#c9a84c] transition-colors" />
+                          <span className="font-[family-name:var(--font-heading)] text-sm text-[#8b7355] group-hover:text-[#c9a84c] tracking-wide transition-colors">
+                            I Don&apos;t Know
+                          </span>
+                          <span className="font-arabic text-xs text-[#8b7355] group-hover:text-[#c9a84c] transition-colors" dir="rtl">
+                            لا أعرف
+                          </span>
+                        </button>
+                        <p className="text-[#8b7355] text-[10px] font-[family-name:var(--font-sans)] text-center max-w-[280px]">
+                          It&apos;s okay to skip — guessing won&apos;t help your score. Only answer if you genuinely know.
+                        </p>
+                      </div>
+                    )}
                   </MetallicCard>
                 </GlowingBorder>
               </motion.div>
@@ -758,9 +883,53 @@ export default function GrammarAssessmentPage() {
               </GlowingBorder>
             </motion.div>
 
-            <SectionDivider />
+            {/* Response Confidence Summary */}
+            {answers.filter(a => a.selectedAnswer === -1).length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="mt-4"
+              >
+                <MetallicCard hover={false} className="p-4">
+                  <div className="flex items-center justify-center gap-6 text-center">
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#4ade80] text-lg font-bold">
+                        {answers.filter(a => a.selectedAnswer !== -1).length}
+                      </p>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-[10px] uppercase tracking-widest">
+                        Answered
+                      </p>
+                    </div>
+                    <div className="w-px h-8 bg-[rgba(201,168,76,0.15)]" />
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-lg font-bold">
+                        {answers.filter(a => a.selectedAnswer === -1).length}
+                      </p>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-[10px] uppercase tracking-widest">
+                        Skipped
+                      </p>
+                    </div>
+                    <div className="w-px h-8 bg-[rgba(201,168,76,0.15)]" />
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-lg font-bold">
+                        {answers.filter(a => a.selectedAnswer !== -1).length > 0 
+                          ? Math.round((answers.filter(a => a.isCorrect).length / answers.filter(a => a.selectedAnswer !== -1).length) * 100)
+                          : 0}%
+                      </p>
+                      <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-[10px] uppercase tracking-widest">
+                        Accuracy (answered only)
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[#8b7355] text-[10px] text-center mt-3 font-[family-name:var(--font-sans)]">
+                    Skipped questions are scored as incorrect. Your accuracy on answered questions reflects true knowledge.
+                  </p>
+                </MetallicCard>
+              </motion.div>
+            )}
 
-            {/* Topic Breakdown */}
+            <SectionDivider />
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
