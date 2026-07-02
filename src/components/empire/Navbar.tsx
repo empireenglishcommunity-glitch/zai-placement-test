@@ -11,7 +11,7 @@ import { ImperialButton } from './ImperialButton';
 // Links visible to everyone
 const publicLinks = [
   { href: '/', label: 'Hall', labelAr: 'الرئيسية', icon: Home },
-  { href: '/assessment', label: 'Trials', labelAr: 'الاختبارات', icon: Swords },
+  { href: '/assessment', label: 'Assessment', labelAr: 'الاختبارات', icon: Swords },
   { href: '/terms', label: 'Terms', labelAr: 'الشروط', icon: Scroll },
   { href: '/ip-ownership', label: 'IP', labelAr: 'الملكية', icon: Crown },
 ];
