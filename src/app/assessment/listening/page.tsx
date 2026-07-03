@@ -46,14 +46,19 @@ export default function ListeningAssessmentPage() {
   // ─── Submit Score on Results ─────────────────────────────
   useEffect(() => {
     if (phase !== 'results') return;
+    if (passages.length === 0) return;
     const submitScore = async () => {
       try {
-        // Get userId from session (same method as speaking trial)
+        // Get userId from session
         const sessionResp = await fetch('/api/auth/session');
         const sessionData = await sessionResp.json();
         const uid = sessionData?.user?.id || sessionData?.user?.email;
         if (!uid) return;
-        await fetch('/api/assessment/submit', {
+        // Calculate score fresh here (don't rely on state timing)
+        const totalCorrect = answers.filter(a => a.isCorrect).length;
+        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 15;
+        const calculatedScore = Math.round((totalCorrect / totalQ) * 30);
+        const res = await fetch('/api/assessment/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -67,16 +72,17 @@ export default function ListeningAssessmentPage() {
               timeTaken: 5000,
             })),
             scores: {
-              overall: score,
-              level: score >= 24 ? 3 : score >= 16 ? 2 : score >= 8 ? 1 : 0,
+              overall: calculatedScore,
+              level: calculatedScore >= 24 ? 3 : calculatedScore >= 16 ? 2 : calculatedScore >= 8 ? 1 : 0,
             },
           }),
         });
-        console.log('[Listening] Score submitted:', score);
+        const data = await res.json();
+        console.log('[Listening] Score submitted:', calculatedScore, 'response:', data);
       } catch (e) { console.error('[Listening] Submit failed:', e); }
     };
     submitScore();
-  }, [phase]); // eslint-disable-line react-hooks-exhaustive-deps
+  }, [phase, answers, passages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Start Trial ─────────────────────────────────────────
 
