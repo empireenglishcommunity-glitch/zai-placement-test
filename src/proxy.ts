@@ -47,8 +47,8 @@ function checkPageRateLimit(ip: string): boolean {
 
   entry.count++;
 
-  // Allow max 60 page requests per minute per IP
-  if (entry.count > 60) {
+  // Allow max 500 page requests per minute per IP (generous — Cloudflare handles real DDoS)
+  if (entry.count > 500) {
     return false;
   }
 
