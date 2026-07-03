@@ -248,29 +248,61 @@ export default function SpeakingAssessmentPage() {
   // ─── TTS for Shadowing (Kokoro pre-generated audio) ─────
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  const speakText = useCallback((text: string) => {
-    // Find the original index in the full SHADOWING_TEXTS array
+  // Preload audio when shadowing phase starts
+  useEffect(() => {
+    if (phase !== 'shadowing') return;
+    const text = shadowingTexts[currentPartIndex];
+    if (!text) return;
     const originalIdx = SHADOWING_TEXTS.indexOf(text);
-    const audioSrc = originalIdx !== -1 ? `/audio/speaking/shadow-${originalIdx}.mp3` : null;
+    if (originalIdx === -1) return;
+    const audio = new Audio(`/audio/speaking/shadow-${originalIdx}.mp3`);
+    audio.preload = 'auto';
+    audioRef.current = audio;
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+    };
+  }, [phase, currentPartIndex]);
+
+  const speakText = useCallback((text: string) => {
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
+    const originalIdx = SHADOWING_TEXTS.indexOf(text);
     
-    // Try Kokoro pre-generated audio first
-    if (audioSrc) {
-      const audio = new Audio(audioSrc);
-      audioRef.current = audio;
-      audio.playbackRate = 0.9;
+    if (originalIdx !== -1 && audioRef.current && audioRef.current.src.includes(`shadow-${originalIdx}`)) {
+      // Use preloaded audio — instant playback
+      const audio = audioRef.current;
+      audio.currentTime = 0;
       audio.onplay = () => setIsSpeaking(true);
       audio.onended = () => { setIsSpeaking(false); setHasListenedShadow(true); };
       audio.onerror = () => {
-        // Fallback to browser TTS if audio file not found
-        console.warn('[Speaking] Audio not found, fallback to TTS');
+        console.warn('[Speaking] Audio error, fallback to TTS');
+        setIsSpeaking(false);
         fallbackTTS(text);
       };
       audio.play().catch(() => fallbackTTS(text));
-      return;
+    } else if (originalIdx !== -1) {
+      // Create new audio if not preloaded
+      const audio = new Audio(`/audio/speaking/shadow-${originalIdx}.mp3`);
+      audioRef.current = audio;
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => { setIsSpeaking(false); setHasListenedShadow(true); };
+      audio.onerror = () => {
+        console.warn('[Speaking] Audio not found, fallback to TTS');
+        setIsSpeaking(false);
+        fallbackTTS(text);
+      };
+      audio.play().catch(() => fallbackTTS(text));
+    } else {
+      fallbackTTS(text);
     }
-    
-    // Direct fallback for non-shadowing text
-    fallbackTTS(text);
   }, []);
 
   const fallbackTTS = useCallback((text: string) => {
