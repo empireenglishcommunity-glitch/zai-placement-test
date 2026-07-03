@@ -82,25 +82,17 @@ export function useSpeechRecognition(
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      setIsListening(true);
-      startTimeRef.current = Date.now();
-
-      // Duration timer
-      durationIntervalRef.current = setInterval(() => {
-        setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      }, 1000);
-
-      // Auto-stop after maxDuration
-      maxDurationTimeoutRef.current = setTimeout(() => {
-        recognition.stop();
-      }, maxDuration * 1000);
+      // Timer already started above (before recognition.start())
+      // This just confirms the mic is active
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let final = '';
       let interim = '';
 
-      for (let i = 0; i < event.results.length; i++) {
+      // Only process NEW results (from resultIndex onward)
+      // This prevents re-processing and duplicating earlier speech
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
           final += result[0].transcript + ' ';
@@ -152,6 +144,18 @@ export function useSpeechRecognition(
 
     recognitionRef.current = recognition;
     recognition.start();
+
+    // Start duration timer IMMEDIATELY (don't wait for onstart which delays for mic permission)
+    startTimeRef.current = Date.now();
+    setIsListening(true);
+    durationIntervalRef.current = setInterval(() => {
+      setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+
+    // Auto-stop after maxDuration
+    maxDurationTimeoutRef.current = setTimeout(() => {
+      recognition.stop();
+    }, maxDuration * 1000);
   }, [isSupported, language, continuous, interimResults, maxDuration]);
 
   const stop = useCallback(() => {
