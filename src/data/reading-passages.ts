@@ -250,34 +250,30 @@ Nevertheless, practical applications of this research are increasingly visible. 
 // ─── Export ─────────────────────────────────────────────────
 
 import { EASY_PASSAGES_B2, MEDIUM_PASSAGES_B2, HARD_PASSAGES_B2, EASY_PASSAGES_B3, MEDIUM_PASSAGES_B3, HARD_PASSAGES_B3 } from './reading-passages-extended';
+import { EASY_PASSAGES_B4, MEDIUM_PASSAGES_B4, HARD_PASSAGES_B4 } from './reading-passages-batch4';
 
 export const ALL_READING_PASSAGES: ReadingPassage[] = [
   ...EASY_PASSAGES,
   ...EASY_PASSAGES_B2,
   ...EASY_PASSAGES_B3,
+  ...EASY_PASSAGES_B4,
   ...MEDIUM_PASSAGES,
   ...MEDIUM_PASSAGES_B2,
   ...MEDIUM_PASSAGES_B3,
+  ...MEDIUM_PASSAGES_B4,
   ...HARD_PASSAGES,
   ...HARD_PASSAGES_B2,
   ...HARD_PASSAGES_B3,
+  ...HARD_PASSAGES_B4,
 ];
 
 export function getReadingSet(): ReadingPassage[] {
-  const allEasy = [...EASY_PASSAGES, ...EASY_PASSAGES_B2, ...EASY_PASSAGES_B3];
-  const allMedium = [...MEDIUM_PASSAGES, ...MEDIUM_PASSAGES_B2, ...MEDIUM_PASSAGES_B3];
-  const allHard = [...HARD_PASSAGES, ...HARD_PASSAGES_B2, ...HARD_PASSAGES_B3];
+  const allEasy = [...EASY_PASSAGES, ...EASY_PASSAGES_B2, ...EASY_PASSAGES_B3, ...EASY_PASSAGES_B4];
+  const allMedium = [...MEDIUM_PASSAGES, ...MEDIUM_PASSAGES_B2, ...MEDIUM_PASSAGES_B3, ...MEDIUM_PASSAGES_B4];
+  const allHard = [...HARD_PASSAGES, ...HARD_PASSAGES_B2, ...HARD_PASSAGES_B3, ...HARD_PASSAGES_B4];
 
   const easy = allEasy[Math.floor(Math.random() * allEasy.length)];
   const medium = allMedium[Math.floor(Math.random() * allMedium.length)];
   const hard = allHard[Math.floor(Math.random() * allHard.length)];
   return [easy, medium, hard];
 }
-
-// Stats:
-// Easy passages: 7 (with 5 questions each = 35 questions)
-// Medium passages: 4 (with 5 questions = 20 questions)
-// Hard passages: 3 (with 5 questions = 15 questions)
-// Per test: 3 passages × 5 questions = 15 questions total
-// Total unique tests possible: 7 × 4 × 3 = 84 combinations
-// Students need many retakes before seeing the same test
