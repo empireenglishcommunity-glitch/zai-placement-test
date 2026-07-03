@@ -153,16 +153,13 @@ export default function ListeningAssessmentPage() {
       setHasPlayedOnce(false);
       setPhase('listening');
     } else {
-      // All done
-      const totalCorrect = answers.filter(a => a.isCorrect).length;
-      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
-      setScore(Math.round((totalCorrect / totalQ) * 30));
+      // All done — phase change triggers score calc in results screen
       setPhase('results');
       return;
     }
     setSelectedOption(null);
     setIsAnswered(false);
-  }, [passages, currentPassageIndex, currentQuestionIndex, answers]);
+  }, [passages, currentPassageIndex, currentQuestionIndex]);
 
   const handleNext = () => advanceQuestion();
 
@@ -392,6 +389,8 @@ export default function ListeningAssessmentPage() {
   if (phase === 'results') {
     const totalCorrect = answers.filter(a => a.isCorrect).length;
     const totalSkipped = answers.filter(a => a.selectedAnswer === -1).length;
+    const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 15;
+    const displayScore = Math.round((totalCorrect / totalQ) * 30);
     const accuracy = answers.filter(a => a.selectedAnswer !== -1).length > 0
       ? Math.round((totalCorrect / answers.filter(a => a.selectedAnswer !== -1).length) * 100) : 0;
 
@@ -412,7 +411,7 @@ export default function ListeningAssessmentPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
                     <div>
                       <p className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs uppercase tracking-widest mb-2">Listening Score</p>
-                      <p className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[#c9a84c]">{score}</p>
+                      <p className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[#c9a84c]">{displayScore}</p>
                       <p className="text-[#8b7355] text-xs mt-1">out of 30</p>
                     </div>
                     <div className="sm:border-x sm:border-[rgba(201,168,76,0.15)]">

@@ -266,17 +266,14 @@ export default function ReadingAssessmentPage() {
       // Start timer for next passage
       startPassageTimer(passages[currentPassageIndex + 1].difficulty);
     } else {
-      // All done — calculate score
-      const totalCorrect = [...answers].filter(a => a.isCorrect).length;
-      // Also count the current answer if just confirmed
-      const finalScore = Math.round((totalCorrect / (passages.reduce((sum, p) => sum + p.questions.length, 0))) * 30);
-      setScore(finalScore);
+      // All done — calculate score from current answers state
+      // Note: answers includes the latest answer because handleSelectOption already called setAnswers
       setPhase('results');
       return;
     }
     setSelectedOption(null);
     setIsAnswered(false);
-  }, [passages, currentPassageIndex, currentQuestionIndex, answers]);
+  }, [passages, currentPassageIndex, currentQuestionIndex, startPassageTimer]);
 
   const handleNext = () => {
     advanceQuestion();

@@ -89,14 +89,9 @@ function ResultsContent() {
 
           if (moduleData?.score != null) {
             completed = true;
-            // Convert percentage-based scores (0-100) to TOEFL section scores (0-30)
-            if (s.key === 'reading' || s.key === 'writing') {
-              // These already come as 0-30 from our new trials
-              score = Math.min(30, Math.round(moduleData.score));
-            } else {
-              // Listening/Speaking come as 0-100 from old system
-              score = Math.min(30, Math.round((moduleData.score / 100) * 30));
-            }
+            // All scores now come as 0-30 from the TOEFL system
+            // Cap at 30 to handle any edge cases
+            score = Math.min(30, Math.round(moduleData.score));
           }
 
           return { section: s.key, label: s.label, icon: s.icon, score, color: s.color, completed };
