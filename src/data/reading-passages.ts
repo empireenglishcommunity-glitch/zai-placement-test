@@ -250,21 +250,24 @@ Nevertheless, practical applications of this research are increasingly visible. 
 // ─── Export ─────────────────────────────────────────────────
 
 import { EASY_PASSAGES_B2, MEDIUM_PASSAGES_B2, HARD_PASSAGES_B2 } from './reading-passages-extended';
+import { EASY_PASSAGES_B4, MEDIUM_PASSAGES_B4, HARD_PASSAGES_B4 } from './reading-passages-batch4';
 
 export const ALL_READING_PASSAGES: ReadingPassage[] = [
   ...EASY_PASSAGES,
   ...EASY_PASSAGES_B2,
+  ...EASY_PASSAGES_B4,
   ...MEDIUM_PASSAGES,
   ...MEDIUM_PASSAGES_B2,
+  ...MEDIUM_PASSAGES_B4,
   ...HARD_PASSAGES,
   ...HARD_PASSAGES_B2,
+  ...HARD_PASSAGES_B4,
 ];
 
 export function getReadingSet(): ReadingPassage[] {
-  // Select 1 passage from each difficulty level for a test
-  const allEasy = [...EASY_PASSAGES, ...EASY_PASSAGES_B2];
-  const allMedium = [...MEDIUM_PASSAGES, ...MEDIUM_PASSAGES_B2];
-  const allHard = [...HARD_PASSAGES, ...HARD_PASSAGES_B2];
+  const allEasy = [...EASY_PASSAGES, ...EASY_PASSAGES_B2, ...EASY_PASSAGES_B4];
+  const allMedium = [...MEDIUM_PASSAGES, ...MEDIUM_PASSAGES_B2, ...MEDIUM_PASSAGES_B4];
+  const allHard = [...HARD_PASSAGES, ...HARD_PASSAGES_B2, ...HARD_PASSAGES_B4];
 
   const easy = allEasy[Math.floor(Math.random() * allEasy.length)];
   const medium = allMedium[Math.floor(Math.random() * allMedium.length)];
