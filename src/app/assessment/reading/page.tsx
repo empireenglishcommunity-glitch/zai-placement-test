@@ -248,10 +248,28 @@ export default function ReadingAssessmentPage() {
 
   const handleSkip = () => {
     if (isAnswered) return;
+    if (!passages[currentPassageIndex]?.questions[currentQuestionIndex]) return;
     const passage = passages[currentPassageIndex];
     const question = passage.questions[currentQuestionIndex];
-    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: -1, isCorrect: false }]);
-    advanceQuestion();
+    const newAnswers = [...answers, { questionId: question.id, selectedAnswer: -1, isCorrect: false }];
+    setAnswers(newAnswers);
+    setIsAnswered(true); // Prevent double-click
+    
+    setTimeout(() => {
+      if (currentQuestionIndex + 1 < passage.questions.length) {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setSelectedOption(null);
+        setIsAnswered(false);
+      } else if (currentPassageIndex + 1 < passages.length) {
+        setCurrentPassageIndex(prev => prev + 1);
+        setCurrentQuestionIndex(0);
+        startPassageTimer(passages[currentPassageIndex + 1].difficulty);
+        setSelectedOption(null);
+        setIsAnswered(false);
+      } else {
+        setPhase('results');
+      }
+    }, 50);
   };
 
   // ─── Next Question ───────────────────────────────────────
@@ -293,10 +311,10 @@ export default function ReadingAssessmentPage() {
     const submitScore = async () => {
       try {
         // Get userId from session
-        const sessionResp = await fetch('/api/auth/session');
+        const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
         const sessionData = await sessionResp.json();
         const uid = sessionData?.user?.id || sessionData?.user?.email;
-        if (!uid) { console.log('[Reading] No userId found, skipping submit'); return; }
+        if (!uid) { console.error('[Reading] No user found in session'); return; }
         const totalCorrect = answers.filter(a => a.isCorrect).length;
         const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
         const readingScore = Math.round((totalCorrect / totalQ) * 30);

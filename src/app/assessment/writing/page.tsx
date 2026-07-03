@@ -162,7 +162,7 @@ export default function WritingAssessmentPage() {
     const writingScaledScore = Math.round((finalScoreCalc / 25) * 30);
     const submitScore = async () => {
       try {
-        const sessionResp = await fetch('/api/auth/session');
+        const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
         const sessionData = await sessionResp.json();
         const uid = sessionData?.user?.id || sessionData?.user?.email;
         if (!uid) return;

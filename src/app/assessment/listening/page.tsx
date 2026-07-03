@@ -50,10 +50,10 @@ export default function ListeningAssessmentPage() {
     const submitScore = async () => {
       try {
         // Get userId from session
-        const sessionResp = await fetch('/api/auth/session');
+        const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
         const sessionData = await sessionResp.json();
         const uid = sessionData?.user?.id || sessionData?.user?.email;
-        if (!uid) return;
+        if (!uid) { console.error('[Listening] No user found in session'); return; }
         // Calculate score fresh here (don't rely on state timing)
         const totalCorrect = answers.filter(a => a.isCorrect).length;
         const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 15;
@@ -114,30 +114,34 @@ export default function ListeningAssessmentPage() {
 
   const handleSkip = () => {
     if (isAnswered) return;
+    if (!passages[currentPassageIndex]?.questions[currentQuestionIndex]) return; // Guard
     const passage = passages[currentPassageIndex];
     const question = passage.questions[currentQuestionIndex];
     const newAnswers = [...answers, { questionId: question.id, selectedAnswer: -1, isCorrect: false }];
     setAnswers(newAnswers);
+    setIsAnswered(true); // Prevent double-click
     
-    // Advance inline (don't rely on stale closure in advanceQuestion)
-    if (currentQuestionIndex + 1 < passage.questions.length) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedOption(null);
-      setIsAnswered(false);
-    } else if (currentPassageIndex + 1 < passages.length) {
-      setCurrentPassageIndex(prev => prev + 1);
-      setCurrentQuestionIndex(0);
-      setHasPlayedOnce(false);
-      setSelectedOption(null);
-      setIsAnswered(false);
-      setPhase('listening');
-    } else {
-      // All done — use newAnswers (includes this skip)
-      const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
-      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
-      setScore(Math.round((totalCorrect / totalQ) * 30));
-      setPhase('results');
-    }
+    // Advance after a micro-delay to let React batch properly
+    setTimeout(() => {
+      if (currentQuestionIndex + 1 < passage.questions.length) {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setSelectedOption(null);
+        setIsAnswered(false);
+      } else if (currentPassageIndex + 1 < passages.length) {
+        setCurrentPassageIndex(prev => prev + 1);
+        setCurrentQuestionIndex(0);
+        setHasPlayedOnce(false);
+        setSelectedOption(null);
+        setIsAnswered(false);
+        setPhase('listening');
+      } else {
+        // All done
+        const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
+        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+        setScore(Math.round((totalCorrect / totalQ) * 30));
+        setPhase('results');
+      }
+    }, 50);
   };
 
   // ─── Next Question ───────────────────────────────────────
