@@ -245,14 +245,40 @@ export default function SpeakingAssessmentPage() {
   }, [isCountdownRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
-  // ─── TTS for Shadowing ─────────────────────────────────
+  // ─── TTS for Shadowing (Kokoro pre-generated audio) ─────
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
   const speakText = useCallback((text: string) => {
+    // Find the original index in the full SHADOWING_TEXTS array
+    const originalIdx = SHADOWING_TEXTS.indexOf(text);
+    const audioSrc = originalIdx !== -1 ? `/audio/speaking/shadow-${originalIdx}.mp3` : null;
+    
+    // Try Kokoro pre-generated audio first
+    if (audioSrc) {
+      const audio = new Audio(audioSrc);
+      audioRef.current = audio;
+      audio.playbackRate = 0.9;
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => { setIsSpeaking(false); setHasListenedShadow(true); };
+      audio.onerror = () => {
+        // Fallback to browser TTS if audio file not found
+        console.warn('[Speaking] Audio not found, fallback to TTS');
+        fallbackTTS(text);
+      };
+      audio.play().catch(() => fallbackTTS(text));
+      return;
+    }
+    
+    // Direct fallback for non-shadowing text
+    fallbackTTS(text);
+  }, []);
+
+  const fallbackTTS = useCallback((text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.85;
     utterance.pitch = 1;
-    // Try to find a high-quality English voice (prefer Google/Microsoft voices)
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(v => 
       v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Microsoft') || v.name.includes('Natural'))
