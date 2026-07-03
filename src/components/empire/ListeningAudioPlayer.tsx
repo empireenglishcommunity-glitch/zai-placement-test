@@ -126,7 +126,6 @@ export function ListeningAudioPlayer({
     if (playCount >= maxReplays) return;
 
     if (!useFallback && audioRef.current) {
-      audioRef.current.playbackRate = speed;
       audioRef.current.currentTime = 0;
       audioRef.current.play();
       setPlayerState('playing');
@@ -135,7 +134,7 @@ export function ListeningAudioPlayer({
       // Browser TTS fallback
       playWithTTS();
     }
-  }, [playCount, maxReplays, speed, useFallback]);
+  }, [playCount, maxReplays, useFallback]);
 
   // ─── Play (Browser TTS Fallback) ──────────────────────────
 
@@ -203,7 +202,8 @@ export function ListeningAudioPlayer({
 
   const handleSpeedChange = (newSpeed: number) => {
     setSpeed(newSpeed);
-    if (!useFallback && audioRef.current && playerState === 'playing') {
+    // Always apply to audio element immediately
+    if (!useFallback && audioRef.current) {
       audioRef.current.playbackRate = newSpeed;
     }
   };
