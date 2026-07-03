@@ -292,20 +292,23 @@ export default function ReadingAssessmentPage() {
   // ─── Submit Score on Results ─────────────────────────────
   useEffect(() => {
     if (phase !== 'results') return;
-    const storedUserId = typeof window !== 'undefined' ? sessionStorage.getItem('empire-user-id') : null;
-    if (!storedUserId || storedUserId.startsWith('guest-')) return;
-    const totalCorrect = answers.filter(a => a.isCorrect).length;
-    const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
-    const readingScore = Math.round((totalCorrect / totalQ) * 30);
     const submitScore = async () => {
       try {
+        // Get userId from session (same method as speaking trial)
+        const sessionResp = await fetch('/api/auth/session');
+        const sessionData = await sessionResp.json();
+        const uid = sessionData?.user?.id || sessionData?.user?.email;
+        if (!uid) return;
+        const totalCorrect = answers.filter(a => a.isCorrect).length;
+        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
+        const readingScore = Math.round((totalCorrect / totalQ) * 30);
         await fetch('/api/assessment/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             module: 'reading',
-            userId: storedUserId,
+            userId: uid,
             answers: answers.map(a => ({
               questionId: a.questionId,
               selectedAnswer: a.selectedAnswer,
@@ -318,7 +321,8 @@ export default function ReadingAssessmentPage() {
             },
           }),
         });
-      } catch (e) { console.error('Submit failed:', e); }
+        console.log('[Reading] Score submitted:', readingScore);
+      } catch (e) { console.error('[Reading] Submit failed:', e); }
     };
     submitScore();
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps

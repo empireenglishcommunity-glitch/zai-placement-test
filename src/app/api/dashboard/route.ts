@@ -81,22 +81,22 @@ export async function GET(req: NextRequest) {
 
     for (const assessment of assessments) {
       // Speaking
-      if (assessment.spOverall !== null) {
+      if (assessment.speakingScore !== null || assessment.spOverall !== null) {
         moduleProgress.speaking = {
           status: 'completed',
-          score: Math.round(assessment.spOverall),
-          level: assessment.spLevel,
+          score: Math.round(assessment.speakingScore ?? assessment.spOverall ?? 0),
+          level: assessment.spLevel ?? (assessment.speakingScore ? (assessment.speakingScore >= 24 ? 3 : assessment.speakingScore >= 16 ? 2 : assessment.speakingScore >= 8 ? 1 : 0) : null),
         };
       } else if (inProgressAssessment?.currentModule === 'speaking' && moduleProgress.speaking.status === 'not_started') {
         moduleProgress.speaking.status = 'in_progress';
       }
 
       // Listening
-      if (assessment.liOverall !== null) {
+      if (assessment.listeningScore !== null || assessment.liOverall !== null) {
         moduleProgress.listening = {
           status: 'completed',
-          score: Math.round(assessment.liOverall),
-          level: assessment.liLevel,
+          score: Math.round(assessment.listeningScore ?? assessment.liOverall ?? 0),
+          level: assessment.liLevel ?? (assessment.listeningScore ? (assessment.listeningScore >= 24 ? 3 : assessment.listeningScore >= 16 ? 2 : assessment.listeningScore >= 8 ? 1 : 0) : null),
         };
       } else if (inProgressAssessment?.currentModule === 'listening' && moduleProgress.listening.status === 'not_started') {
         moduleProgress.listening.status = 'in_progress';
