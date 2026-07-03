@@ -37,6 +37,7 @@ export default function ReadingAssessmentPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
+  const [isStarting, setIsStarting] = useState(false);
 
   // Timer per passage
   const [timeLeft, setTimeLeft] = useState(0);
@@ -350,9 +351,20 @@ export default function ReadingAssessmentPage() {
             </motion.div>
 
             <motion.div className="text-center mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-              <ImperialButton variant="primary" size="lg" onClick={handleStart} className="gap-2">
-                <span>Begin Reading Trial</span>
-                <ChevronRight className="w-5 h-5" />
+              <ImperialButton variant="primary" size="lg" onClick={() => { setIsStarting(true); handleStart(); }} disabled={isStarting} className="gap-2">
+                {isStarting ? (
+                  <>
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+                      <Clock className="w-5 h-5" />
+                    </motion.div>
+                    <span>Preparing your test...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Begin Reading Trial</span>
+                    <ChevronRight className="w-5 h-5" />
+                  </>
+                )}
               </ImperialButton>
             </motion.div>
           </div>

@@ -215,7 +215,7 @@ export default function ListeningAssessmentPage() {
               </MetallicCard>
             </motion.div>
             <motion.div className="text-center mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-              <ImperialButton variant="primary" size="lg" onClick={handleStart} className="gap-2">
+              <ImperialButton variant="primary" size="lg" onClick={() => { handleStart(); }} className="gap-2">
                 <Headphones className="w-5 h-5" />
                 <span>Begin Listening Trial</span>
               </ImperialButton>
