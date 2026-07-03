@@ -43,46 +43,39 @@ export default function ListeningAssessmentPage() {
   // Audio state
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
 
-  // ─── Submit Score on Results ─────────────────────────────
-  useEffect(() => {
-    if (phase !== 'results') return;
-    if (passages.length === 0) return;
-    const submitScore = async () => {
-      try {
-        // Get userId from session
-        const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
-        const sessionData = await sessionResp.json();
-        const uid = sessionData?.user?.id || sessionData?.user?.email;
-        if (!uid) { console.error('[Listening] No user found in session'); return; }
-        // Calculate score fresh here (don't rely on state timing)
-        const totalCorrect = answers.filter(a => a.isCorrect).length;
-        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 15;
-        const calculatedScore = Math.round((totalCorrect / totalQ) * 30);
-        const res = await fetch('/api/assessment/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            module: 'listening',
-            userId: uid,
-            answers: answers.map(a => ({
-              questionId: a.questionId,
-              selectedAnswer: a.selectedAnswer,
-              isCorrect: a.isCorrect,
-              timeTaken: 5000,
-            })),
-            scores: {
-              overall: calculatedScore,
-              level: calculatedScore >= 24 ? 3 : calculatedScore >= 16 ? 2 : calculatedScore >= 8 ? 1 : 0,
-            },
-          }),
-        });
-        const data = await res.json();
-        console.log('[Listening] Score submitted:', calculatedScore, 'response:', data);
-      } catch (e) { console.error('[Listening] Submit failed:', e); }
-    };
-    submitScore();
-  }, [phase, answers, passages]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ─── Submit Score to API (called directly, not via useEffect) ─────
+  const submitTrialScore = useCallback(async (finalAnswers: AnswerRecord[]) => {
+    try {
+      const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
+      const sessionData = await sessionResp.json();
+      const uid = sessionData?.user?.id || sessionData?.user?.email;
+      if (!uid) { console.error('[Listening] No user in session, cannot save score'); return; }
+      const totalCorrect = finalAnswers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 15;
+      const calculatedScore = Math.round((totalCorrect / totalQ) * 30);
+      console.log('[Listening] Submitting score:', calculatedScore, 'uid:', uid);
+      await fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          module: 'listening',
+          userId: uid,
+          answers: finalAnswers.map(a => ({
+            questionId: a.questionId,
+            selectedAnswer: a.selectedAnswer,
+            isCorrect: a.isCorrect,
+            timeTaken: 5000,
+          })),
+          scores: {
+            overall: calculatedScore,
+            level: calculatedScore >= 24 ? 3 : calculatedScore >= 16 ? 2 : calculatedScore >= 8 ? 1 : 0,
+          },
+        }),
+      });
+      console.log('[Listening] Score saved successfully');
+    } catch (e) { console.error('[Listening] Submit failed:', e); }
+  }, [passages]);
 
   // ─── Start Trial ─────────────────────────────────────────
 
@@ -140,6 +133,7 @@ export default function ListeningAssessmentPage() {
         const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
         setScore(Math.round((totalCorrect / totalQ) * 30));
         setPhase('results');
+        submitTrialScore(newAnswers); // Direct call — no useEffect needed
       }
     }, 50);
   };
@@ -151,19 +145,23 @@ export default function ListeningAssessmentPage() {
     if (currentQuestionIndex + 1 < passage.questions.length) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else if (currentPassageIndex + 1 < passages.length) {
-      // Move to next passage — listen first
       setCurrentPassageIndex(prev => prev + 1);
       setCurrentQuestionIndex(0);
       setHasPlayedOnce(false);
       setPhase('listening');
     } else {
-      // All done — phase change triggers score calc in results screen
+      // All done — submit score directly with current answers
+      const allAnswers = [...answers];
+      const totalCorrect = allAnswers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+      setScore(Math.round((totalCorrect / totalQ) * 30));
       setPhase('results');
+      submitTrialScore(allAnswers); // Direct call
       return;
     }
     setSelectedOption(null);
     setIsAnswered(false);
-  }, [passages, currentPassageIndex, currentQuestionIndex]);
+  }, [passages, currentPassageIndex, currentQuestionIndex, answers, submitTrialScore]);
 
   const handleNext = () => advanceQuestion();
 

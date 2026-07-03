@@ -138,8 +138,10 @@ export default function WritingAssessmentPage() {
     setIsEvaluating(true);
 
     // AI Evaluation via Gemini
+    let score1: TaskScore;
+    let score2: TaskScore;
     try {
-      const [score1, score2] = await Promise.all([
+      [score1, score2] = await Promise.all([
         evaluateWriting(task1Text, 'summary', task1Prompt?.passage || ''),
         evaluateWriting(task2Text, 'essay', ''),
       ]);
@@ -147,46 +149,47 @@ export default function WritingAssessmentPage() {
       setTask2Score(score2);
     } catch {
       // Fallback scoring based on word count and basic heuristics
-      setTask1Score(fallbackScore(task1Text, 150));
-      setTask2Score(fallbackScore(task2Text, 300));
+      score1 = fallbackScore(task1Text, 150);
+      score2 = fallbackScore(task2Text, 300);
+      setTask1Score(score1);
+      setTask2Score(score2);
     }
 
     setIsEvaluating(false);
     setPhase('results');
+    submitWritingScore(score1, score2); // Direct call — no useEffect
   };
 
-  // ─── Submit Score on Results ─────────────────────────────
-  useEffect(() => {
-    if (phase !== 'results' || !task1Score || !task2Score) return;
-    const finalScoreCalc = Math.round((task1Score.overall + task2Score.overall) / 2);
-    const writingScaledScore = Math.round((finalScoreCalc / 25) * 30);
-    const submitScore = async () => {
-      try {
-        const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
-        const sessionData = await sessionResp.json();
-        const uid = sessionData?.user?.id || sessionData?.user?.email;
-        if (!uid) return;
-        await fetch('/api/assessment/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            module: 'writing',
-            userId: uid,
-            answers: [],
-            scores: {
-              overall: writingScaledScore,
-              level: writingScaledScore >= 24 ? 3 : writingScaledScore >= 16 ? 2 : writingScaledScore >= 8 ? 1 : 0,
-              grammar: task1Score.grammar,
-              coherence: task1Score.coherence,
-              vocabulary: task1Score.vocabulary,
-            },
-          }),
-        });
-      } catch (e) { console.error('Submit failed:', e); }
-    };
-    submitScore();
-  }, [phase, task1Score, task2Score]);
+  // ─── Submit Score to API (called directly after evaluation) ─────
+  const submitWritingScore = async (s1: TaskScore, s2: TaskScore) => {
+    try {
+      const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
+      const sessionData = await sessionResp.json();
+      const uid = sessionData?.user?.id || sessionData?.user?.email;
+      if (!uid) { console.error('[Writing] No user in session'); return; }
+      const finalScoreCalc = Math.round((s1.overall + s2.overall) / 2);
+      const writingScaledScore = Math.round((finalScoreCalc / 25) * 30);
+      console.log('[Writing] Submitting score:', writingScaledScore, 'uid:', uid);
+      await fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          module: 'writing',
+          userId: uid,
+          answers: [],
+          scores: {
+            overall: writingScaledScore,
+            level: writingScaledScore >= 24 ? 3 : writingScaledScore >= 16 ? 2 : writingScaledScore >= 8 ? 1 : 0,
+            grammar: s1.grammar,
+            coherence: s1.coherence,
+            vocabulary: s1.vocabulary,
+          },
+        }),
+      });
+      console.log('[Writing] Score saved successfully');
+    } catch (e) { console.error('[Writing] Submit failed:', e); }
+  };
 
   return (
     <WritingUI

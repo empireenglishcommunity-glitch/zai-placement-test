@@ -244,6 +244,40 @@ export default function ReadingAssessmentPage() {
 
   // ─── Answer Selection (moved after shuffled definition) ──
 
+  // ─── Submit Score to API (called directly, not via useEffect) ─────
+  const submitTrialScore = useCallback(async (finalAnswers: AnswerRecord[]) => {
+    try {
+      const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
+      const sessionData = await sessionResp.json();
+      const uid = sessionData?.user?.id || sessionData?.user?.email;
+      if (!uid) { console.error('[Reading] No user in session'); return; }
+      const totalCorrect = finalAnswers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
+      const readingScore = Math.round((totalCorrect / totalQ) * 30);
+      console.log('[Reading] Submitting score:', readingScore, 'uid:', uid);
+      await fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          module: 'reading',
+          userId: uid,
+          answers: finalAnswers.map(a => ({
+            questionId: a.questionId,
+            selectedAnswer: a.selectedAnswer,
+            isCorrect: a.isCorrect,
+            timeTaken: 5000,
+          })),
+          scores: {
+            overall: readingScore,
+            level: readingScore >= 24 ? 3 : readingScore >= 16 ? 2 : readingScore >= 8 ? 1 : 0,
+          },
+        }),
+      });
+      console.log('[Reading] Score saved successfully');
+    } catch (e) { console.error('[Reading] Submit failed:', e); }
+  }, [passages]);
+
   // ─── Skip Question ───────────────────────────────────────
 
   const handleSkip = () => {
@@ -253,7 +287,7 @@ export default function ReadingAssessmentPage() {
     const question = passage.questions[currentQuestionIndex];
     const newAnswers = [...answers, { questionId: question.id, selectedAnswer: -1, isCorrect: false }];
     setAnswers(newAnswers);
-    setIsAnswered(true); // Prevent double-click
+    setIsAnswered(true);
     
     setTimeout(() => {
       if (currentQuestionIndex + 1 < passage.questions.length) {
@@ -267,7 +301,11 @@ export default function ReadingAssessmentPage() {
         setSelectedOption(null);
         setIsAnswered(false);
       } else {
+        const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
+        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+        setScore(Math.round((totalCorrect / totalQ) * 30));
         setPhase('results');
+        submitTrialScore(newAnswers);
       }
     }, 50);
   };
@@ -281,17 +319,19 @@ export default function ReadingAssessmentPage() {
     } else if (currentPassageIndex + 1 < passages.length) {
       setCurrentPassageIndex(prev => prev + 1);
       setCurrentQuestionIndex(0);
-      // Start timer for next passage
       startPassageTimer(passages[currentPassageIndex + 1].difficulty);
     } else {
-      // All done — calculate score from current answers state
-      // Note: answers includes the latest answer because handleSelectOption already called setAnswers
+      // All done — submit directly
+      const totalCorrect = answers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+      setScore(Math.round((totalCorrect / totalQ) * 30));
       setPhase('results');
+      submitTrialScore(answers);
       return;
     }
     setSelectedOption(null);
     setIsAnswered(false);
-  }, [passages, currentPassageIndex, currentQuestionIndex, startPassageTimer]);
+  }, [passages, currentPassageIndex, currentQuestionIndex, startPassageTimer, answers, submitTrialScore]);
 
   const handleNext = () => {
     advanceQuestion();
@@ -303,46 +343,6 @@ export default function ReadingAssessmentPage() {
   const currentQuestion = currentPassage?.questions[currentQuestionIndex];
   const totalQuestions = passages.reduce((sum, p) => sum + p.questions.length, 0);
   const answeredSoFar = answers.length;
-
-  // ─── Submit Score on Results ─────────────────────────────
-  useEffect(() => {
-    if (phase !== 'results') return;
-    if (passages.length === 0) return;
-    const submitScore = async () => {
-      try {
-        // Get userId from session
-        const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
-        const sessionData = await sessionResp.json();
-        const uid = sessionData?.user?.id || sessionData?.user?.email;
-        if (!uid) { console.error('[Reading] No user found in session'); return; }
-        const totalCorrect = answers.filter(a => a.isCorrect).length;
-        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
-        const readingScore = Math.round((totalCorrect / totalQ) * 30);
-        const res = await fetch('/api/assessment/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            module: 'reading',
-            userId: uid,
-            answers: answers.map(a => ({
-              questionId: a.questionId,
-              selectedAnswer: a.selectedAnswer,
-              isCorrect: a.isCorrect,
-              timeTaken: 5000,
-            })),
-            scores: {
-              overall: readingScore,
-              level: readingScore >= 24 ? 3 : readingScore >= 16 ? 2 : readingScore >= 8 ? 1 : 0,
-            },
-          }),
-        });
-        const data = await res.json();
-        console.log('[Reading] Score submitted:', readingScore, 'response:', data);
-      } catch (e) { console.error('[Reading] Submit failed:', e); }
-    };
-    submitScore();
-  }, [phase, answers, passages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Answer Selection ────────────────────────────────────
 
