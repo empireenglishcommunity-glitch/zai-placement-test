@@ -155,6 +155,39 @@ export default function WritingAssessmentPage() {
     setPhase('results');
   };
 
+  // ─── Submit Score on Results ─────────────────────────────
+  useEffect(() => {
+    if (phase !== 'results' || !task1Score || !task2Score) return;
+    const finalScoreCalc = Math.round((task1Score.overall + task2Score.overall) / 2);
+    const writingScaledScore = Math.round((finalScoreCalc / 25) * 30);
+    const submitScore = async () => {
+      try {
+        const sessionResp = await fetch('/api/auth/session');
+        const sessionData = await sessionResp.json();
+        const uid = sessionData?.user?.id || sessionData?.user?.email;
+        if (!uid) return;
+        await fetch('/api/assessment/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            module: 'writing',
+            userId: uid,
+            answers: [],
+            scores: {
+              overall: writingScaledScore,
+              level: writingScaledScore >= 24 ? 3 : writingScaledScore >= 16 ? 2 : writingScaledScore >= 8 ? 1 : 0,
+              grammar: task1Score.grammar,
+              coherence: task1Score.coherence,
+              vocabulary: task1Score.vocabulary,
+            },
+          }),
+        });
+      } catch (e) { console.error('Submit failed:', e); }
+    };
+    submitScore();
+  }, [phase, task1Score, task2Score]);
+
   return (
     <WritingUI
       phase={phase}
@@ -395,16 +428,28 @@ function WritingUI({
                         </span>
                       )}
                     </div>
-                    <ImperialButton
-                      variant="primary"
-                      size="md"
-                      onClick={handleSubmit}
-                      disabled={wordCount < 20}
-                      className="gap-2"
-                    >
-                      <span>{isTask1 ? 'Submit & Continue' : 'Submit Essay'}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </ImperialButton>
+                    <div className="flex items-center gap-3">
+                      {/* Skip / I Can't Write This button */}
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-[rgba(139,115,85,0.3)] hover:border-[rgba(139,115,85,0.5)] transition-all"
+                      >
+                        <ChevronRight className="w-4 h-4 text-[#8b7355] group-hover:text-[#c9a84c]" />
+                        <span className="font-[family-name:var(--font-heading)] text-xs text-[#8b7355] group-hover:text-[#c9a84c]">Skip Task</span>
+                        <span className="font-arabic text-[10px] text-[#8b7355]" dir="rtl">تخطي</span>
+                      </button>
+                      <ImperialButton
+                        variant="primary"
+                        size="md"
+                        onClick={handleSubmit}
+                        disabled={wordCount < 20}
+                        className="gap-2"
+                      >
+                        <span>{isTask1 ? 'Submit & Continue' : 'Submit Essay'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </ImperialButton>
+                    </div>
                   </div>
                 </MetallicCard>
               </div>

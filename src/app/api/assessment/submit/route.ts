@@ -131,6 +131,7 @@ async function handler(req: NextRequest) {
             updateData.spRhythmMatch = scores.rhythmMatch ?? null;
             updateData.spOverall = scores.overall ?? null;
             updateData.spLevel = scores.level ?? null;
+            updateData.speakingScore = scores.overall ?? null;
           }
 
           if (module === 'listening' && scores) {
@@ -138,16 +139,27 @@ async function handler(req: NextRequest) {
             updateData.liInference = scores.inference ?? null;
             updateData.liOverall = scores.overall ?? null;
             updateData.liLevel = scores.level ?? null;
+            updateData.listeningScore = scores.overall ?? null;
+          }
+
+          if (module === 'reading' && scores) {
+            updateData.readingScore = scores.overall ?? null;
+          }
+
+          if (module === 'writing' && scores) {
+            updateData.writingScore = scores.overall ?? null;
           }
 
           // Check if all modules are complete
           const currentAssessment = await db.assessment.findUnique({ where: { id: assessment.id } });
           const hasVocab = currentAssessment?.voOverall !== null || (module === 'vocabulary' && scores?.overall);
           const hasGrammar = currentAssessment?.grPercentage !== null || (module === 'grammar' && scores);
-          const hasSpeaking = currentAssessment?.spOverall !== null || (module === 'speaking' && scores?.overall);
-          const hasListening = currentAssessment?.liOverall !== null || (module === 'listening' && scores?.overall);
+          const hasSpeaking = currentAssessment?.spOverall !== null || currentAssessment?.speakingScore !== null || (module === 'speaking' && scores?.overall);
+          const hasListening = currentAssessment?.liOverall !== null || currentAssessment?.listeningScore !== null || (module === 'listening' && scores?.overall);
+          const hasReading = currentAssessment?.readingScore !== null || (module === 'reading' && scores?.overall);
+          const hasWriting = currentAssessment?.writingScore !== null || (module === 'writing' && scores?.overall);
 
-          if (hasVocab && hasGrammar && hasSpeaking && hasListening) {
+          if (hasVocab && hasGrammar && hasSpeaking && hasListening && hasReading && hasWriting) {
             updateData.status = 'completed';
             updateData.completedAt = new Date();
           }

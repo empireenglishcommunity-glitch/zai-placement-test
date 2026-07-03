@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Clock, ChevronRight, BookOpen, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
@@ -15,6 +15,7 @@ import {
   SectionDivider,
 } from '@/components/empire';
 import { getReadingSet, type ReadingPassage, type ReadingQuestion } from '@/data/reading-passages';
+import { shuffleOptions } from '@/lib/shuffle-options';
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -77,6 +78,22 @@ export default function ReadingAssessmentPage() {
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
+
+  // ─── Shuffle options for current question (Bug 2 fix) ────
+  // Must be defined before any useCallback that references them
+  const shuffled = useMemo(() => {
+    const cq = passages[currentPassageIndex]?.questions[currentQuestionIndex];
+    if (!cq) return { shuffledOptions: [] as string[], newCorrectIndex: 0 };
+    const seed = cq.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return shuffleOptions(cq.options, cq.correctAnswer, seed);
+  }, [passages, currentPassageIndex, currentQuestionIndex]);
+
+  // Shuffle for adaptive mode
+  const adaptiveShuffled = useMemo(() => {
+    if (!adaptiveItem?.question) return { shuffledOptions: [] as string[], newCorrectIndex: 0 };
+    const seed = adaptiveItem.question.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return shuffleOptions(adaptiveItem.question.options, adaptiveItem.question.correctAnswer, seed);
+  }, [adaptiveItem]);
 
   // ─── Adaptive: Start IRT Test ────────────────────────────
 
@@ -163,9 +180,9 @@ export default function ReadingAssessmentPage() {
     if (isAnswered || !adaptiveItem) return;
     setSelectedOption(idx);
     setIsAnswered(true);
-    const correct = idx === adaptiveItem.question.correctAnswer;
+    const correct = idx === adaptiveShuffled.newCorrectIndex;
     setAnswers(prev => [...prev, { questionId: adaptiveItem.question.id, selectedAnswer: idx, isCorrect: correct }]);
-  }, [isAnswered, adaptiveItem]);
+  }, [isAnswered, adaptiveItem, adaptiveShuffled]);
 
   // ─── Adaptive: Proceed to Next After Reveal ──────────────
 
@@ -225,17 +242,7 @@ export default function ReadingAssessmentPage() {
     if (finalPassages[0]) startPassageTimer(finalPassages[0].difficulty);
   }, [startPassageTimer]);
 
-  // ─── Answer Selection ────────────────────────────────────
-
-  const handleSelectOption = (idx: number) => {
-    if (isAnswered) return;
-    setSelectedOption(idx);
-    setIsAnswered(true);
-    const passage = passages[currentPassageIndex];
-    const question = passage.questions[currentQuestionIndex];
-    const isCorrect = idx === question.correctAnswer;
-    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: idx, isCorrect }]);
-  };
+  // ─── Answer Selection (moved after shuffled definition) ──
 
   // ─── Skip Question ───────────────────────────────────────
 
@@ -281,6 +288,52 @@ export default function ReadingAssessmentPage() {
   const currentQuestion = currentPassage?.questions[currentQuestionIndex];
   const totalQuestions = passages.reduce((sum, p) => sum + p.questions.length, 0);
   const answeredSoFar = answers.length;
+
+  // ─── Submit Score on Results ─────────────────────────────
+  useEffect(() => {
+    if (phase !== 'results') return;
+    const storedUserId = typeof window !== 'undefined' ? sessionStorage.getItem('empire-user-id') : null;
+    if (!storedUserId || storedUserId.startsWith('guest-')) return;
+    const totalCorrect = answers.filter(a => a.isCorrect).length;
+    const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
+    const readingScore = Math.round((totalCorrect / totalQ) * 30);
+    const submitScore = async () => {
+      try {
+        await fetch('/api/assessment/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            module: 'reading',
+            userId: storedUserId,
+            answers: answers.map(a => ({
+              questionId: a.questionId,
+              selectedAnswer: a.selectedAnswer,
+              isCorrect: a.isCorrect,
+              timeTaken: 5000,
+            })),
+            scores: {
+              overall: readingScore,
+              level: readingScore >= 24 ? 3 : readingScore >= 16 ? 2 : readingScore >= 8 ? 1 : 0,
+            },
+          }),
+        });
+      } catch (e) { console.error('Submit failed:', e); }
+    };
+    submitScore();
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Answer Selection ────────────────────────────────────
+
+  const handleSelectOption = (idx: number) => {
+    if (isAnswered) return;
+    setSelectedOption(idx);
+    setIsAnswered(true);
+    const passage = passages[currentPassageIndex];
+    const question = passage.questions[currentQuestionIndex];
+    const isCorrect = idx === shuffled.newCorrectIndex;
+    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: idx, isCorrect }]);
+  };
 
 
   // ─── Intro Screen ────────────────────────────────────────
@@ -448,10 +501,10 @@ export default function ReadingAssessmentPage() {
                       {adaptiveItem.question.questionText}
                     </h4>
                     <div className="space-y-3">
-                      {adaptiveItem.question.options.map((option, idx) => {
+                      {adaptiveShuffled.shuffledOptions.map((option, idx) => {
                         const isSelected = selectedOption === idx;
-                        const isCorrect = isAnswered && idx === adaptiveItem.question.correctAnswer;
-                        const isWrong = isAnswered && isSelected && idx !== adaptiveItem.question.correctAnswer;
+                        const isCorrect = isAnswered && idx === adaptiveShuffled.newCorrectIndex;
+                        const isWrong = isAnswered && isSelected && idx !== adaptiveShuffled.newCorrectIndex;
                         return (
                           <button key={idx} type="button" onClick={() => handleAdaptiveSelect(idx)} disabled={isAnswered}
                             className={`w-full text-left rounded-lg border p-4 transition-all duration-200 ${
@@ -581,10 +634,10 @@ export default function ReadingAssessmentPage() {
 
                         {/* Options */}
                         <div className="space-y-3">
-                          {currentQuestion.options.map((option, idx) => {
+                          {shuffled.shuffledOptions.map((option, idx) => {
                             const isSelected = selectedOption === idx;
-                            const isCorrect = isAnswered && idx === currentQuestion.correctAnswer;
-                            const isWrong = isAnswered && isSelected && idx !== currentQuestion.correctAnswer;
+                            const isCorrect = isAnswered && idx === shuffled.newCorrectIndex;
+                            const isWrong = isAnswered && isSelected && idx !== shuffled.newCorrectIndex;
 
                             return (
                               <button
