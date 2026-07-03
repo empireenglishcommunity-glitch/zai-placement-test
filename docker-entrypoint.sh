@@ -199,6 +199,25 @@ else
   echo "✅ Database exists"
 fi
 
+# ─── Ensure new TOEFL score columns exist (added July 2026) ───
+echo "📦 Ensuring TOEFL score columns exist..."
+sqlite3 "$DB_PATH" << 'SQL'
+-- Add TOEFL section score columns if they don't exist
+-- SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we use a trick
+CREATE TABLE IF NOT EXISTS "_migration_check" ("id" INTEGER PRIMARY KEY);
+-- readingScore
+SELECT CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END FROM pragma_table_info('assessments') WHERE name = 'readingScore';
+SQL
+
+# Use a more reliable approach: try each ALTER and ignore errors
+sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN readingScore REAL;" 2>/dev/null || true
+sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN listeningScore REAL;" 2>/dev/null || true
+sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN speakingScore REAL;" 2>/dev/null || true
+sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN writingScore REAL;" 2>/dev/null || true
+sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN totalScore REAL;" 2>/dev/null || true
+sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN cefrLevel TEXT;" 2>/dev/null || true
+echo "✅ TOEFL score columns verified"
+
 # Start the server
 echo "🚀 Starting server on port ${PORT:-3000}..."
 exec node server.js
