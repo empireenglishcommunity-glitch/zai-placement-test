@@ -24,3 +24,4 @@ export { FounderSection } from './FounderSection';
 
 
 export { AuthRequired } from './AuthRequired';
+export { ListeningAudioPlayer } from './ListeningAudioPlayer';

@@ -10,7 +10,9 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "generate:audio": "npx tsx scripts/generate-listening-audio.ts",
+    "generate:audio:all": "npx tsx scripts/generate-listening-audio.ts --regenerate"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

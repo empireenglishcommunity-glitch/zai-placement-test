@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════
+# EMPIRE ENGLISH — Kokoro TTS Server
+# Self-hosted text-to-speech for Listening trial audio
+# Deploy to: /opt/kokoro-tts/ on Hetzner VPS
+# ═══════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi:v0.4.5-cpu
+    container_name: kokoro-tts
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8880:8880"
+    environment:
+      - KOKORO_PORT=8880
+      - KOKORO_DEFAULT_VOICE=af_heart
+      - KOKORO_DEFAULT_SPEED=1.0
+    volumes:
+      - kokoro-cache:/app/api/cache
+      - kokoro-models:/app/api/models
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.5'
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8880/v1/audio/speech", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"model\":\"kokoro\",\"input\":\"test\",\"voice\":\"af_heart\"}", "-o", "/dev/null"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  kokoro-cache:
+  kokoro-models:
