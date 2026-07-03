@@ -70,6 +70,8 @@ export async function GET(req: NextRequest) {
     }> = {
       speaking: { status: 'not_started', score: null, level: null },
       listening: { status: 'not_started', score: null, level: null },
+      reading: { status: 'not_started', score: null, level: null },
+      writing: { status: 'not_started', score: null, level: null },
       vocabulary: { status: 'not_started', score: null, level: null },
       grammar: { status: 'not_started', score: null, level: null },
     };
@@ -121,6 +123,44 @@ export async function GET(req: NextRequest) {
       } else if (inProgressAssessment?.currentModule === 'grammar' && moduleProgress.grammar.status === 'not_started') {
         moduleProgress.grammar.status = 'in_progress';
       }
+
+      // Reading (TOEFL)
+      if (assessment.readingScore !== null) {
+        moduleProgress.reading = {
+          status: 'completed',
+          score: Math.round(assessment.readingScore),
+          level: assessment.readingScore >= 24 ? 3 : assessment.readingScore >= 16 ? 2 : assessment.readingScore >= 8 ? 1 : 0,
+        };
+      } else if (inProgressAssessment?.currentModule === 'reading' && moduleProgress.reading.status === 'not_started') {
+        moduleProgress.reading.status = 'in_progress';
+      }
+
+      // Writing (TOEFL)
+      if (assessment.writingScore !== null) {
+        moduleProgress.writing = {
+          status: 'completed',
+          score: Math.round(assessment.writingScore),
+          level: assessment.writingScore >= 24 ? 3 : assessment.writingScore >= 16 ? 2 : assessment.writingScore >= 8 ? 1 : 0,
+        };
+      } else if (inProgressAssessment?.currentModule === 'writing' && moduleProgress.writing.status === 'not_started') {
+        moduleProgress.writing.status = 'in_progress';
+      }
+
+      // Also check new TOEFL listening/speaking score fields
+      if (assessment.listeningScore !== null && moduleProgress.listening.status !== 'completed') {
+        moduleProgress.listening = {
+          status: 'completed',
+          score: Math.round(assessment.listeningScore),
+          level: assessment.listeningScore >= 24 ? 3 : assessment.listeningScore >= 16 ? 2 : assessment.listeningScore >= 8 ? 1 : 0,
+        };
+      }
+      if (assessment.speakingScore !== null && moduleProgress.speaking.status !== 'completed') {
+        moduleProgress.speaking = {
+          status: 'completed',
+          score: Math.round(assessment.speakingScore),
+          level: assessment.speakingScore >= 24 ? 3 : assessment.speakingScore >= 16 ? 2 : assessment.speakingScore >= 8 ? 1 : 0,
+        };
+      }
     }
 
     // Build activity feed from assessments
@@ -132,6 +172,8 @@ export async function GET(req: NextRequest) {
         const moduleLabels: Record<string, string> = {
           speaking: 'Speaking',
           listening: 'Listening',
+          reading: 'Reading',
+          writing: 'Writing',
           vocabulary: 'Vocabulary',
           grammar: 'Grammar',
         };

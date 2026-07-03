@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { ChevronRight, Headphones, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
@@ -16,6 +16,7 @@ import {
   ListeningAudioPlayer,
 } from '@/components/empire';
 import { getListeningSet, type ListeningPassage } from '@/data/listening-passages';
+import { shuffleOptions } from '@/lib/shuffle-options';
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -42,6 +43,37 @@ export default function ListeningAssessmentPage() {
   // Audio state
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
 
+  // ─── Submit Score on Results ─────────────────────────────
+  useEffect(() => {
+    if (phase !== 'results') return;
+    const storedUserId = typeof window !== 'undefined' ? sessionStorage.getItem('empire-user-id') : null;
+    if (!storedUserId || storedUserId.startsWith('guest-')) return;
+    const submitScore = async () => {
+      try {
+        await fetch('/api/assessment/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            module: 'listening',
+            userId: storedUserId,
+            answers: answers.map(a => ({
+              questionId: a.questionId,
+              selectedAnswer: a.selectedAnswer,
+              isCorrect: a.isCorrect,
+              timeTaken: 5000,
+            })),
+            scores: {
+              overall: score,
+              level: score >= 24 ? 3 : score >= 16 ? 2 : score >= 8 ? 1 : 0,
+            },
+          }),
+        });
+      } catch (e) { console.error('Submit failed:', e); }
+    };
+    submitScore();
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Start Trial ─────────────────────────────────────────
 
   const handleStart = useCallback(() => {
@@ -67,18 +99,6 @@ export default function ListeningAssessmentPage() {
   const handlePlaybackComplete = useCallback(() => {
     setHasPlayedOnce(true);
   }, []);
-
-  // ─── Answer Selection ────────────────────────────────────
-
-  const handleSelectOption = (idx: number) => {
-    if (isAnswered) return;
-    setSelectedOption(idx);
-    setIsAnswered(true);
-    const passage = passages[currentPassageIndex];
-    const question = passage.questions[currentQuestionIndex];
-    const isCorrect = idx === question.correctAnswer;
-    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: idx, isCorrect }]);
-  };
 
   // ─── Skip Question ───────────────────────────────────────
 
@@ -122,6 +142,26 @@ export default function ListeningAssessmentPage() {
   const currentQuestion = currentPassage?.questions[currentQuestionIndex];
   const totalQuestions = passages.reduce((sum, p) => sum + p.questions.length, 0);
   const answeredSoFar = answers.length;
+
+  // Shuffle options to prevent answer position bias (Bug 2 fix)
+  const shuffled = useMemo(() => {
+    const cq = passages[currentPassageIndex]?.questions[currentQuestionIndex];
+    if (!cq) return { shuffledOptions: [] as string[], newCorrectIndex: 0 };
+    const seed = cq.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return shuffleOptions(cq.options, cq.correctAnswer, seed);
+  }, [passages, currentPassageIndex, currentQuestionIndex]);
+
+  // ─── Answer Selection ────────────────────────────────────
+
+  const handleSelectOption = (idx: number) => {
+    if (isAnswered) return;
+    setSelectedOption(idx);
+    setIsAnswered(true);
+    const passage = passages[currentPassageIndex];
+    const question = passage.questions[currentQuestionIndex];
+    const isCorrect = idx === shuffled.newCorrectIndex;
+    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: idx, isCorrect }]);
+  };
 
 
   // ─── Intro Screen ────────────────────────────────────────
@@ -266,10 +306,10 @@ export default function ListeningAssessmentPage() {
                     </div>
                     <h4 className="text-[#e8e8e8] text-base sm:text-lg leading-relaxed mb-6">{currentQuestion.questionText}</h4>
                     <div className="space-y-3">
-                      {currentQuestion.options.map((option, idx) => {
+                      {shuffled.shuffledOptions.map((option, idx) => {
                         const isSelected = selectedOption === idx;
-                        const isCorrect = isAnswered && idx === currentQuestion.correctAnswer;
-                        const isWrong = isAnswered && isSelected && idx !== currentQuestion.correctAnswer;
+                        const isCorrect = isAnswered && idx === shuffled.newCorrectIndex;
+                        const isWrong = isAnswered && isSelected && idx !== shuffled.newCorrectIndex;
                         return (
                           <button key={idx} type="button" onClick={() => handleSelectOption(idx)} disabled={isAnswered}
                             className={`w-full text-left rounded-lg border p-4 transition-all duration-200 ${

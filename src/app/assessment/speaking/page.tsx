@@ -230,20 +230,19 @@ export default function SpeakingAssessmentPage() {
 
   // ─── Countdown Timer ───────────────────────────────────
   useEffect(() => {
-    if (isCountdownRunning && countdown > 0) {
-      countdownRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            setIsCountdownRunning(false);
-            speech.stop();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+    if (!isCountdownRunning) return;
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          setIsCountdownRunning(false);
+          speech.stop();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
-  }, [isCountdownRunning, countdown, speech]);
+  }, [isCountdownRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ─── TTS for Shadowing ─────────────────────────────────
@@ -253,6 +252,12 @@ export default function SpeakingAssessmentPage() {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.85;
     utterance.pitch = 1;
+    // Try to find a high-quality English voice (prefer Google/Microsoft voices)
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+      v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Microsoft') || v.name.includes('Natural'))
+    ) || voices.find(v => v.lang.startsWith('en-US') || v.lang.startsWith('en-GB')) || voices[0];
+    if (preferredVoice) utterance.voice = preferredVoice;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => { setIsSpeaking(false); setHasListenedShadow(true); };
     window.speechSynthesis.speak(utterance);
