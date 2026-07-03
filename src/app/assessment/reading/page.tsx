@@ -43,6 +43,17 @@ export default function ReadingAssessmentPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const PASSAGE_TIME = { easy: 7 * 60, medium: 10 * 60, hard: 14 * 60 }; // seconds
 
+  // ─── IRT Adaptive Mode State ─────────────────────────────
+  const [adaptiveMode, setAdaptiveMode] = useState(true); // Default: adaptive ON
+  const [adaptiveSessionId, setAdaptiveSessionId] = useState<string | null>(null);
+  const [adaptiveItem, setAdaptiveItem] = useState<{
+    id: string;
+    passage: { title: string; text: string; difficulty: string; topic: string; wordCount: number };
+    question: { id: string; type: string; questionText: string; options: string[]; correctAnswer: number };
+  } | null>(null);
+  const [adaptiveProgress, setAdaptiveProgress] = useState({ questionsAnswered: 0, maxQuestions: 15, confidence: 0 });
+  const [adaptiveResults, setAdaptiveResults] = useState<{ score: number; questionsAnswered: number; totalCorrect: number; accuracy: number } | null>(null);
+
   const startPassageTimer = useCallback((difficulty: 'easy' | 'medium' | 'hard') => {
     if (timerRef.current) clearInterval(timerRef.current);
     const seconds = PASSAGE_TIME[difficulty];
@@ -66,9 +77,115 @@ export default function ReadingAssessmentPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // ─── Start Trial ─────────────────────────────────────────
+  // ─── Adaptive: Start IRT Test ────────────────────────────
+
+  const handleStartAdaptive = useCallback(async () => {
+    try {
+      const userId = typeof window !== 'undefined' ? (sessionStorage.getItem('empire-user-id') || `guest-${Date.now()}`) : `guest-${Date.now()}`;
+      const res = await fetch('/api/assessment/adaptive-reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start', userId }),
+      });
+      if (!res.ok) throw new Error('Failed to start adaptive test');
+      const data = await res.json();
+
+      setAdaptiveSessionId(data.sessionId);
+      setAdaptiveItem(data.currentItem);
+      setAdaptiveProgress(data.progress);
+      setPhase('reading');
+      // Start timer based on passage difficulty
+      if (data.currentItem?.passage?.difficulty) {
+        startPassageTimer(data.currentItem.passage.difficulty as 'easy' | 'medium' | 'hard');
+      }
+    } catch {
+      // Fallback to static mode if adaptive fails
+      setAdaptiveMode(false);
+      handleStartStatic();
+    }
+  }, [startPassageTimer]);
+
+  // ─── Adaptive: Submit Answer ─────────────────────────────
+
+  const handleAdaptiveAnswer = useCallback(async (correct: boolean) => {
+    if (!adaptiveSessionId || !adaptiveItem) return;
+
+    try {
+      const res = await fetch('/api/assessment/adaptive-reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'answer',
+          userId: 'current',
+          sessionId: adaptiveSessionId,
+          response: { itemId: adaptiveItem.id, correct },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to submit answer');
+      const data = await res.json();
+
+      if (data.isComplete) {
+        // Test is done — show results
+        setAdaptiveResults(data.results);
+        setScore(data.results.score);
+        setPhase('results');
+        if (timerRef.current) clearInterval(timerRef.current);
+      } else {
+        // Load next item
+        setAdaptiveItem(data.currentItem);
+        setAdaptiveProgress(data.progress);
+        setSelectedOption(null);
+        setIsAnswered(false);
+        // Reset timer for new passage
+        if (data.currentItem?.passage?.difficulty) {
+          startPassageTimer(data.currentItem.passage.difficulty as 'easy' | 'medium' | 'hard');
+        }
+      }
+    } catch {
+      // On error, just finish with what we have
+      setPhase('results');
+    }
+  }, [adaptiveSessionId, adaptiveItem, startPassageTimer]);
+
+  // ─── Adaptive: Skip Question ─────────────────────────────
+
+  const handleAdaptiveSkip = useCallback(() => {
+    if (isAnswered) return;
+    setAnswers(prev => [...prev, { questionId: adaptiveItem?.question?.id || '', selectedAnswer: -1, isCorrect: false }]);
+    setIsAnswered(true);
+    handleAdaptiveAnswer(false);
+  }, [isAnswered, adaptiveItem, handleAdaptiveAnswer]);
+
+  // ─── Adaptive: Select Option ─────────────────────────────
+
+  const handleAdaptiveSelect = useCallback((idx: number) => {
+    if (isAnswered || !adaptiveItem) return;
+    setSelectedOption(idx);
+    setIsAnswered(true);
+    const correct = idx === adaptiveItem.question.correctAnswer;
+    setAnswers(prev => [...prev, { questionId: adaptiveItem.question.id, selectedAnswer: idx, isCorrect: correct }]);
+  }, [isAnswered, adaptiveItem]);
+
+  // ─── Adaptive: Proceed to Next After Reveal ──────────────
+
+  const handleAdaptiveNext = useCallback(() => {
+    const lastAnswer = answers[answers.length - 1];
+    handleAdaptiveAnswer(lastAnswer?.isCorrect || false);
+  }, [answers, handleAdaptiveAnswer]);
+
+  // ─── Start Trial (router) ────────────────────────────────
 
   const handleStart = useCallback(async () => {
+    if (adaptiveMode) {
+      await handleStartAdaptive();
+      return;
+    }
+    await handleStartStatic();
+  }, [adaptiveMode, handleStartAdaptive]);
+
+  // ─── Static Mode: Original Start (fallback) ──────────────
+
+  const handleStartStatic = useCallback(async () => {
     // Try AI-generated passages first, fallback to static bank
     const difficulties: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
     const aiPassages: ReadingPassage[] = [];
@@ -246,7 +363,131 @@ export default function ReadingAssessmentPage() {
   }
 
 
-  // ─── Reading + Questions Screen ──────────────────────────
+  // ─── Reading: ADAPTIVE MODE ────────────────────────────────
+
+  if (phase === 'reading' && adaptiveMode && adaptiveItem) {
+    const difficultyColors: Record<string, string> = { easy: '#4ade80', medium: '#c9a84c', hard: '#ff6b35' };
+    const diffColor = difficultyColors[adaptiveItem.passage.difficulty] || '#c9a84c';
+
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+        <ParticleBackground />
+        <Navbar />
+        <main className="flex-1 pt-20 pb-12 relative z-10">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            {/* Progress Header */}
+            <motion.div className="mb-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-[family-name:var(--font-heading)] text-sm font-bold" style={{ color: diffColor }}>
+                    {adaptiveItem.passage.difficulty.charAt(0).toUpperCase() + adaptiveItem.passage.difficulty.slice(1)} — {adaptiveItem.passage.topic}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-[family-name:var(--font-heading)] tracking-wider uppercase border border-[rgba(74,222,128,0.3)] text-[#4ade80] bg-[rgba(74,222,128,0.05)]">
+                    Adaptive
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-[family-name:var(--font-heading)] text-[#8b7355] text-xs">
+                    Q{adaptiveProgress.questionsAnswered + 1} / {adaptiveProgress.maxQuestions} max
+                  </span>
+                  {/* Timer */}
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${
+                    timeLeft <= 60 && timeLeft > 0 ? 'border-[rgba(231,76,60,0.4)] bg-[rgba(231,76,60,0.05)]'
+                    : 'border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.03)]'
+                  }`}>
+                    <Clock className={`w-3.5 h-3.5 ${timeLeft <= 60 && timeLeft > 0 ? 'text-[#e74c3c]' : 'text-[#c9a84c]'}`} />
+                    <span className={`font-[family-name:var(--font-heading)] text-xs tabular-nums ${timeLeft <= 60 && timeLeft > 0 ? 'text-[#e74c3c]' : 'text-[#c9a84c]'}`}>
+                      {formatTimer(timeLeft)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <ProgressBar value={adaptiveProgress.questionsAnswered + 1} max={adaptiveProgress.maxQuestions} showPercentage={false} color={diffColor} size="sm" />
+            </motion.div>
+
+            {/* Split Layout: Passage + Question */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* LEFT: Passage */}
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="order-2 lg:order-1">
+                <MetallicCard className="p-5 sm:p-6 max-h-[70vh] overflow-y-auto" hover={false}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <BookOpen className="w-4 h-4 text-[#c9a84c]" />
+                    <h3 className="font-[family-name:var(--font-heading)] text-[#c9a84c] text-sm tracking-wide">
+                      {adaptiveItem.passage.title}
+                    </h3>
+                    <span className="text-[#8b7355] text-[10px] ml-auto">{adaptiveItem.passage.wordCount} words</span>
+                  </div>
+                  <div className="text-[#c0c0c0] text-sm sm:text-base leading-relaxed whitespace-pre-line font-[family-name:var(--font-sans)]">
+                    {adaptiveItem.passage.text}
+                  </div>
+                </MetallicCard>
+              </motion.div>
+
+              {/* RIGHT: Question */}
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="order-1 lg:order-2">
+                <GlowingBorder color="gold" intensity="low">
+                  <MetallicCard className="p-5 sm:p-6" hover={false}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-[family-name:var(--font-heading)] tracking-wider uppercase border border-[rgba(201,168,76,0.3)] text-[#c9a84c] bg-[rgba(201,168,76,0.05)]">
+                        {adaptiveItem.question.type.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <h4 className="font-[family-name:var(--font-sans)] text-[#e8e8e8] text-base sm:text-lg leading-relaxed mb-6">
+                      {adaptiveItem.question.questionText}
+                    </h4>
+                    <div className="space-y-3">
+                      {adaptiveItem.question.options.map((option, idx) => {
+                        const isSelected = selectedOption === idx;
+                        const isCorrect = isAnswered && idx === adaptiveItem.question.correctAnswer;
+                        const isWrong = isAnswered && isSelected && idx !== adaptiveItem.question.correctAnswer;
+                        return (
+                          <button key={idx} type="button" onClick={() => handleAdaptiveSelect(idx)} disabled={isAnswered}
+                            className={`w-full text-left rounded-lg border p-4 transition-all duration-200 ${
+                              isCorrect ? 'border-[#4ade80] bg-[rgba(74,222,128,0.08)]'
+                              : isWrong ? 'border-[#e74c3c] bg-[rgba(231,76,60,0.08)]'
+                              : isSelected ? 'border-[#c9a84c] bg-[rgba(201,168,76,0.08)]'
+                              : 'border-[rgba(201,168,76,0.15)] bg-[#111118] hover:border-[rgba(201,168,76,0.35)]'
+                            }`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs font-bold font-[family-name:var(--font-heading)] ${
+                                isCorrect ? 'border-[#4ade80] text-[#4ade80]'
+                                : isWrong ? 'border-[#e74c3c] text-[#e74c3c]'
+                                : isSelected ? 'border-[#c9a84c] text-[#c9a84c]'
+                                : 'border-[rgba(201,168,76,0.25)] text-[#8b7355]'
+                              }`}>{String.fromCharCode(65 + idx)}</div>
+                              <span className={`text-sm ${isCorrect ? 'text-[#4ade80]' : isWrong ? 'text-[#e74c3c]' : isSelected ? 'text-[#e8d48b]' : 'text-[#c0c0c0]'}`}>{option}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex flex-col items-center gap-3 mt-6">
+                      {isAnswered ? (
+                        <ImperialButton variant="primary" size="md" onClick={handleAdaptiveNext} className="gap-2 w-full sm:w-auto">
+                          <span>Next Question</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </ImperialButton>
+                      ) : (
+                        <button type="button" onClick={handleAdaptiveSkip}
+                          className="group flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(139,115,85,0.3)] hover:border-[rgba(139,115,85,0.5)] transition-all">
+                          <ChevronRight className="w-4 h-4 text-[#8b7355] group-hover:text-[#c9a84c]" />
+                          <span className="font-[family-name:var(--font-heading)] text-sm text-[#8b7355] group-hover:text-[#c9a84c]">I Don&apos;t Know</span>
+                          <span className="font-arabic text-xs text-[#8b7355]" dir="rtl">لا أعرف</span>
+                        </button>
+                      )}
+                    </div>
+                  </MetallicCard>
+                </GlowingBorder>
+              </motion.div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // ─── Reading + Questions Screen (STATIC MODE) ─────────────
 
   if (phase === 'reading' && currentPassage && currentQuestion) {
     const difficultyColors = { easy: '#4ade80', medium: '#c9a84c', hard: '#ff6b35' };
