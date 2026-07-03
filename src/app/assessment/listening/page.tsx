@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Clock, ChevronRight, Headphones, ArrowRight, CheckCircle2, XCircle, Volume2, Play, Pause } from 'lucide-react';
+import { ChevronRight, Headphones, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
 import {
   ParticleBackground,
   Navbar,
@@ -13,8 +13,9 @@ import {
   GlowingBorder,
   ProgressBar,
   SectionDivider,
+  ListeningAudioPlayer,
 } from '@/components/empire';
-import { getListeningSet, type ListeningPassage, type ListeningQuestion } from '@/data/listening-passages';
+import { getListeningSet, type ListeningPassage } from '@/data/listening-passages';
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -39,57 +40,7 @@ export default function ListeningAssessmentPage() {
   const [score, setScore] = useState(0);
 
   // Audio state
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasPlayed, setHasPlayed] = useState(false);
-  const [playCount, setPlayCount] = useState(0);
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  // ─── TTS Playback ────────────────────────────────────────
-
-  const playPassage = useCallback(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-
-    const passage = passages[currentPassageIndex];
-    if (!passage) return;
-
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(passage.transcript);
-    utterance.rate = passage.wpm / 150; // Normalize: 150 WPM = rate 1.0
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    // Try to use a good English voice
-    const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) 
-      || voices.find(v => v.lang.startsWith('en-US'))
-      || voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) utterance.voice = englishVoice;
-
-    utterance.onstart = () => setIsPlaying(true);
-    utterance.onend = () => {
-      setIsPlaying(false);
-      setHasPlayed(true);
-      setPlayCount(prev => prev + 1);
-    };
-    utterance.onerror = () => setIsPlaying(false);
-
-    speechRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  }, [passages, currentPassageIndex]);
-
-  const stopPlayback = useCallback(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    setIsPlaying(false);
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => { stopPlayback(); };
-  }, [stopPlayback]);
+  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
 
   // ─── Start Trial ─────────────────────────────────────────
 
@@ -101,17 +52,21 @@ export default function ListeningAssessmentPage() {
     setAnswers([]);
     setSelectedOption(null);
     setIsAnswered(false);
-    setHasPlayed(false);
-    setPlayCount(0);
+    setHasPlayedOnce(false);
     setPhase('listening');
   }, []);
 
   // ─── Move to Questions After Listening ───────────────────
 
   const handleProceedToQuestions = () => {
-    stopPlayback();
     setPhase('questions');
   };
+
+  // ─── Audio Callbacks ─────────────────────────────────────
+
+  const handlePlaybackComplete = useCallback(() => {
+    setHasPlayedOnce(true);
+  }, []);
 
   // ─── Answer Selection ────────────────────────────────────
 
@@ -145,8 +100,7 @@ export default function ListeningAssessmentPage() {
       // Move to next passage — listen first
       setCurrentPassageIndex(prev => prev + 1);
       setCurrentQuestionIndex(0);
-      setHasPlayed(false);
-      setPlayCount(0);
+      setHasPlayedOnce(false);
       setPhase('listening');
     } else {
       // All done
@@ -249,45 +203,21 @@ export default function ListeningAssessmentPage() {
                 <p className="text-[#8b7355] text-xs mt-1 capitalize">{currentPassage.format} &middot; {currentPassage.topic}</p>
               </div>
 
-              {/* Audio Player Card */}
+              {/* Audio Player */}
               <GlowingBorder color="gold" intensity="medium">
-                <MetallicCard className="p-8 sm:p-12 text-center" hover={false}>
-                  <motion.div animate={isPlaying ? { scale: [1, 1.05, 1] } : {}} transition={{ duration: 1.5, repeat: isPlaying ? Infinity : 0 }}>
-                    <Volume2 className={`w-16 h-16 mx-auto mb-6 ${isPlaying ? 'text-[#c9a84c]' : 'text-[#8b7355]'}`} />
-                  </motion.div>
+                <MetallicCard className="p-8 sm:p-12" hover={false}>
+                  <ListeningAudioPlayer
+                    key={currentPassage.id}
+                    passageId={currentPassage.id}
+                    transcript={currentPassage.transcript}
+                    wpm={currentPassage.wpm}
+                    maxReplays={2}
+                    onPlaybackComplete={handlePlaybackComplete}
+                  />
 
-                  {!hasPlayed && !isPlaying && (
-                    <p className="text-[#c0c0c0] text-sm mb-6">Press play to listen to the passage. Listen carefully — you will answer questions after.</p>
-                  )}
-                  {isPlaying && (
-                    <p className="text-[#c9a84c] text-sm mb-6 font-[family-name:var(--font-heading)]">Listening... pay close attention.</p>
-                  )}
-                  {hasPlayed && !isPlaying && (
-                    <p className="text-[#4ade80] text-sm mb-6">Passage complete. You may replay or proceed to questions.</p>
-                  )}
-
-                  <div className="flex items-center justify-center gap-4">
-                    {!isPlaying ? (
-                      <ImperialButton
-                        variant="primary"
-                        size="lg"
-                        onClick={playPassage}
-                        disabled={playCount >= 2 && hasPlayed}
-                        className="gap-2"
-                      >
-                        <Play className="w-5 h-5" />
-                        <span>{playCount === 0 ? 'Play Passage' : `Replay (${2 - playCount} left)`}</span>
-                      </ImperialButton>
-                    ) : (
-                      <ImperialButton variant="secondary" size="lg" onClick={stopPlayback} className="gap-2">
-                        <Pause className="w-5 h-5" />
-                        <span>Pause</span>
-                      </ImperialButton>
-                    )}
-                  </div>
-
-                  {hasPlayed && (
-                    <motion.div className="mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  {/* Proceed Button (appears after first play) */}
+                  {hasPlayedOnce && (
+                    <motion.div className="mt-8 text-center" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                       <ImperialButton variant="primary" size="md" onClick={handleProceedToQuestions} className="gap-2">
                         <span>Proceed to Questions</span>
                         <ArrowRight className="w-4 h-4" />
