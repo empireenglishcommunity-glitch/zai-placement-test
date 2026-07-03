@@ -46,17 +46,20 @@ export default function ListeningAssessmentPage() {
   // ─── Submit Score on Results ─────────────────────────────
   useEffect(() => {
     if (phase !== 'results') return;
-    const storedUserId = typeof window !== 'undefined' ? sessionStorage.getItem('empire-user-id') : null;
-    if (!storedUserId || storedUserId.startsWith('guest-')) return;
     const submitScore = async () => {
       try {
+        // Get userId from session (same method as speaking trial)
+        const sessionResp = await fetch('/api/auth/session');
+        const sessionData = await sessionResp.json();
+        const uid = sessionData?.user?.id || sessionData?.user?.email;
+        if (!uid) return;
         await fetch('/api/assessment/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             module: 'listening',
-            userId: storedUserId,
+            userId: uid,
             answers: answers.map(a => ({
               questionId: a.questionId,
               selectedAnswer: a.selectedAnswer,
@@ -69,10 +72,11 @@ export default function ListeningAssessmentPage() {
             },
           }),
         });
-      } catch (e) { console.error('Submit failed:', e); }
+        console.log('[Listening] Score submitted:', score);
+      } catch (e) { console.error('[Listening] Submit failed:', e); }
     };
     submitScore();
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase]); // eslint-disable-line react-hooks-exhaustive-deps
 
   // ─── Start Trial ─────────────────────────────────────────
 
