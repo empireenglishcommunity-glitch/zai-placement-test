@@ -110,8 +110,28 @@ export default function ListeningAssessmentPage() {
     if (isAnswered) return;
     const passage = passages[currentPassageIndex];
     const question = passage.questions[currentQuestionIndex];
-    setAnswers(prev => [...prev, { questionId: question.id, selectedAnswer: -1, isCorrect: false }]);
-    advanceQuestion();
+    const newAnswers = [...answers, { questionId: question.id, selectedAnswer: -1, isCorrect: false }];
+    setAnswers(newAnswers);
+    
+    // Advance inline (don't rely on stale closure in advanceQuestion)
+    if (currentQuestionIndex + 1 < passage.questions.length) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedOption(null);
+      setIsAnswered(false);
+    } else if (currentPassageIndex + 1 < passages.length) {
+      setCurrentPassageIndex(prev => prev + 1);
+      setCurrentQuestionIndex(0);
+      setHasPlayedOnce(false);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      setPhase('listening');
+    } else {
+      // All done — use newAnswers (includes this skip)
+      const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+      setScore(Math.round((totalCorrect / totalQ) * 30));
+      setPhase('results');
+    }
   };
 
   // ─── Next Question ───────────────────────────────────────
