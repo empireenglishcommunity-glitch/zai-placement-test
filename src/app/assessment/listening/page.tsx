@@ -107,35 +107,32 @@ export default function ListeningAssessmentPage() {
 
   const handleSkip = () => {
     if (isAnswered) return;
-    if (!passages[currentPassageIndex]?.questions[currentQuestionIndex]) return; // Guard
+    if (!passages[currentPassageIndex]?.questions[currentQuestionIndex]) return;
     const passage = passages[currentPassageIndex];
     const question = passage.questions[currentQuestionIndex];
     const newAnswers = [...answers, { questionId: question.id, selectedAnswer: -1, isCorrect: false }];
     setAnswers(newAnswers);
-    setIsAnswered(true); // Prevent double-click
+    setIsAnswered(true);
     
-    // Advance after a micro-delay to let React batch properly
-    setTimeout(() => {
-      if (currentQuestionIndex + 1 < passage.questions.length) {
-        setCurrentQuestionIndex(prev => prev + 1);
-        setSelectedOption(null);
-        setIsAnswered(false);
-      } else if (currentPassageIndex + 1 < passages.length) {
-        setCurrentPassageIndex(prev => prev + 1);
-        setCurrentQuestionIndex(0);
-        setHasPlayedOnce(false);
-        setSelectedOption(null);
-        setIsAnswered(false);
-        setPhase('listening');
-      } else {
-        // All done
-        const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
-        const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
-        setScore(Math.round((totalCorrect / totalQ) * 30));
-        setPhase('results');
-        submitTrialScore(newAnswers); // Direct call — no useEffect needed
-      }
-    }, 50);
+    if (currentQuestionIndex + 1 < passage.questions.length) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedOption(null);
+      setIsAnswered(false);
+    } else if (currentPassageIndex + 1 < passages.length) {
+      setCurrentPassageIndex(prev => prev + 1);
+      setCurrentQuestionIndex(0);
+      setHasPlayedOnce(false);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      setPhase('listening');
+    } else {
+      // All done
+      const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
+      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
+      setScore(Math.round((totalCorrect / totalQ) * 30));
+      setPhase('results');
+      submitTrialScore(newAnswers);
+    }
   };
 
   // ─── Next Question ───────────────────────────────────────
@@ -448,5 +445,18 @@ export default function ListeningAssessmentPage() {
     );
   }
 
-  return null;
+  // Fallback — should never reach here, but prevents blank page
+  return (
+    <div className="min-h-screen flex flex-col bg-[#0a0a0a]">
+      <ParticleBackground />
+      <Navbar />
+      <main className="flex-1 flex items-center justify-center relative z-10">
+        <div className="text-center">
+          <p className="text-[#c9a84c] text-lg mb-4">Loading...</p>
+          <ImperialButton variant="primary" onClick={handleStart}>Restart Trial</ImperialButton>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
 }
