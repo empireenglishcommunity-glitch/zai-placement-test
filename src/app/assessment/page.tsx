@@ -245,10 +245,12 @@ function TrialCard({ data, index }: { data: TrialCardData; index: number }) {
         {/* CTA Button */}
         <div className="mt-4">
           {isCompleted ? (
-            <ImperialButton variant="outline" size="md" className="w-full" disabled>
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Trial Completed
-            </ImperialButton>
+            <Link href={data.href} className="block">
+              <ImperialButton variant="outline" size="md" className="w-full">
+                <CheckCircle className="w-4 h-4 mr-2 text-[#4ade80]" />
+                Retake Trial
+              </ImperialButton>
+            </Link>
           ) : isLocked ? (
             <ImperialButton variant="ghost" size="md" className="w-full" disabled>
               <Lock className="w-4 h-4 mr-2" />
