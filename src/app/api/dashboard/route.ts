@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
 
     for (const assessment of assessments) {
       // Speaking
-      if (assessment.speakingScore !== null || assessment.spOverall !== null) {
+      if ((assessment.speakingScore !== null || assessment.spOverall !== null) && moduleProgress.speaking.status !== 'completed') {
         moduleProgress.speaking = {
           status: 'completed',
           score: Math.round(assessment.speakingScore ?? assessment.spOverall ?? 0),
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Listening
-      if (assessment.listeningScore !== null || assessment.liOverall !== null) {
+      if ((assessment.listeningScore !== null || assessment.liOverall !== null) && moduleProgress.listening.status !== 'completed') {
         moduleProgress.listening = {
           status: 'completed',
           score: Math.round(assessment.listeningScore ?? assessment.liOverall ?? 0),
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Reading (TOEFL)
-      if (assessment.readingScore !== null) {
+      if (assessment.readingScore !== null && moduleProgress.reading.status !== 'completed') {
         moduleProgress.reading = {
           status: 'completed',
           score: Math.round(assessment.readingScore),
@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Writing (TOEFL)
-      if (assessment.writingScore !== null) {
+      if (assessment.writingScore !== null && moduleProgress.writing.status !== 'completed') {
         moduleProgress.writing = {
           status: 'completed',
           score: Math.round(assessment.writingScore),
