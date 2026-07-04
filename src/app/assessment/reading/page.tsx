@@ -79,6 +79,38 @@ export default function ReadingAssessmentPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // ─── Submit Reading Score to API ─────────────────────────
+  // Works for BOTH adaptive and static modes
+  const submitReadingScore = useCallback(async (readingScore: number, finalAnswers?: AnswerRecord[]) => {
+    try {
+      const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
+      const sessionData = await sessionResp.json();
+      const uid = sessionData?.user?.id || sessionData?.user?.email;
+      if (!uid) { console.error('[Reading] No user in session — score NOT saved'); return; }
+      console.log('[Reading] Submitting score:', readingScore, 'uid:', uid);
+      await fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          module: 'reading',
+          userId: uid,
+          answers: (finalAnswers || []).map(a => ({
+            questionId: a.questionId,
+            selectedAnswer: a.selectedAnswer,
+            isCorrect: a.isCorrect,
+            timeTaken: 5000,
+          })),
+          scores: {
+            overall: readingScore,
+            level: readingScore >= 24 ? 3 : readingScore >= 16 ? 2 : readingScore >= 8 ? 1 : 0,
+          },
+        }),
+      });
+      console.log('[Reading] Score saved successfully:', readingScore);
+    } catch (e) { console.error('[Reading] Submit FAILED:', e); }
+  }, []);
+
   // ─── Shuffle options for current question (Bug 2 fix) ────
   // Must be defined before any useCallback that references them
   const shuffled = useMemo(() => {
@@ -148,6 +180,8 @@ export default function ReadingAssessmentPage() {
         setScore(data.results.score);
         setPhase('results');
         if (timerRef.current) clearInterval(timerRef.current);
+        // Submit score to dashboard
+        submitReadingScore(data.results.score, answers);
       } else {
         // Load next item
         setAdaptiveItem(data.currentItem);
@@ -162,6 +196,7 @@ export default function ReadingAssessmentPage() {
     } catch {
       // On error, just finish with what we have
       setPhase('results');
+      submitReadingScore(score || 0, answers);
     }
   }, [adaptiveSessionId, adaptiveItem, startPassageTimer]);
 
@@ -244,40 +279,6 @@ export default function ReadingAssessmentPage() {
 
   // ─── Answer Selection (moved after shuffled definition) ──
 
-  // ─── Submit Score to API (called directly, not via useEffect) ─────
-  const submitTrialScore = useCallback(async (finalAnswers: AnswerRecord[]) => {
-    try {
-      const sessionResp = await fetch('/api/auth/session', { credentials: 'include' });
-      const sessionData = await sessionResp.json();
-      const uid = sessionData?.user?.id || sessionData?.user?.email;
-      if (!uid) { console.error('[Reading] No user in session'); return; }
-      const totalCorrect = finalAnswers.filter(a => a.isCorrect).length;
-      const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0) || 1;
-      const readingScore = Math.round((totalCorrect / totalQ) * 30);
-      console.log('[Reading] Submitting score:', readingScore, 'uid:', uid);
-      await fetch('/api/assessment/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          module: 'reading',
-          userId: uid,
-          answers: finalAnswers.map(a => ({
-            questionId: a.questionId,
-            selectedAnswer: a.selectedAnswer,
-            isCorrect: a.isCorrect,
-            timeTaken: 5000,
-          })),
-          scores: {
-            overall: readingScore,
-            level: readingScore >= 24 ? 3 : readingScore >= 16 ? 2 : readingScore >= 8 ? 1 : 0,
-          },
-        }),
-      });
-      console.log('[Reading] Score saved successfully');
-    } catch (e) { console.error('[Reading] Submit failed:', e); }
-  }, [passages]);
-
   // ─── Skip Question ───────────────────────────────────────
 
   const handleSkip = () => {
@@ -305,7 +306,7 @@ export default function ReadingAssessmentPage() {
         const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
         setScore(Math.round((totalCorrect / totalQ) * 30));
         setPhase('results');
-        submitTrialScore(newAnswers);
+        const sc = Math.round((newAnswers.filter(a => a.isCorrect).length / (passages.reduce((s, p) => s + p.questions.length, 0) || 1)) * 30); submitReadingScore(sc, newAnswers);
       }
     }, 50);
   };
@@ -326,12 +327,12 @@ export default function ReadingAssessmentPage() {
       const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
       setScore(Math.round((totalCorrect / totalQ) * 30));
       setPhase('results');
-      submitTrialScore(answers);
+      const sc2 = Math.round((answers.filter(a => a.isCorrect).length / (passages.reduce((s, p) => s + p.questions.length, 0) || 1)) * 30); submitReadingScore(sc2, answers);
       return;
     }
     setSelectedOption(null);
     setIsAnswered(false);
-  }, [passages, currentPassageIndex, currentQuestionIndex, startPassageTimer, answers, submitTrialScore]);
+  }, [passages, currentPassageIndex, currentQuestionIndex, startPassageTimer, answers, submitReadingScore]);
 
   const handleNext = () => {
     advanceQuestion();
