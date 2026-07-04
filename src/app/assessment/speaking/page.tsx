@@ -224,6 +224,8 @@ export default function SpeakingAssessmentPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const speech = useSpeechRecognition({ maxDuration: 90 });
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
   const cooldown = useRetakeCooldown('speaking');
   const { userId: currentUserId, isGuest: isSpeakingGuest } = useUserId();
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -488,8 +490,8 @@ export default function SpeakingAssessmentPage() {
             </div>
           )}
 
-          {/* Browser support warning */}
-          {!speech.isSupported && (
+          {/* Browser support warning — only show after hydration */}
+          {isMounted && !speech.isSupported && phase === 'intro' && (
             <div className="mb-6 p-4 rounded-lg border border-[#e74c3c] bg-[rgba(231,76,60,0.1)]">
               <div className="flex items-center gap-2 text-[#e74c3c]">
                 <AlertCircle className="w-5 h-5" />
