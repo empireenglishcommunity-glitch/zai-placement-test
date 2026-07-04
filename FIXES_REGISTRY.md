@@ -77,11 +77,23 @@ sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN readingScore REAL;" 2>/de
 
 ## FIX #7: Listening Blank Page on "I Don't Know"
 
-**Date:** 2026-07-03
+**Date:** 2026-07-04
 **File:** `src/app/assessment/listening/page.tsx`
-**Root Cause:** `handleSkip` set state and called `advanceQuestion` in the same tick. `advanceQuestion` used stale closure values.
-**Fix:** Inlined advance logic in `handleSkip` with `setIsAnswered(true)` guard + `setTimeout(50ms)`.
-**NEVER call `advanceQuestion()` from `handleSkip()` — always inline the logic.**
+**Root Cause:** Setting `setIsAnswered(true)` then `setIsAnswered(false)` in the same handler confused React batching. Also `setTimeout` caused state updates OUTSIDE React batch → render in intermediate state → blank page.
+**Fix:** 
+- Use `useRef(false)` for double-click guard (synchronous, no render trigger)
+- Direct index values: `setCurrentQuestionIndex(currentQuestionIndex + 1)` not `prev => prev + 1`
+- NO `setIsAnswered` toggling in skip handler
+- NO `setTimeout` — all state updates synchronous in one batch
+- Pre-computed booleans: `isLastQuestionInPassage`, `isLastPassage`
+- Fallback render at end of component shows "Restart Trial" instead of blank page
+**Verification:** Click "I Don't Know" on ALL questions — should never show blank page.
+
+### NEVER DO in Listening skip handler:
+- ❌ `setIsAnswered(true); ... setIsAnswered(false);` in same function
+- ❌ `setTimeout(() => { setState... }, 50)`
+- ❌ `prev => prev + 1` for index updates
+- ❌ Calling `advanceQuestion()` from `handleSkip()`
 
 ---
 
