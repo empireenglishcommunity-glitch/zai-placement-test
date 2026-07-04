@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { ChevronRight, Headphones, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
@@ -105,34 +105,42 @@ export default function ListeningAssessmentPage() {
 
   // ─── Skip Question ───────────────────────────────────────
 
+  const skipInProgress = useRef(false);
+  
   const handleSkip = () => {
-    if (isAnswered) return;
+    if (isAnswered || skipInProgress.current) return;
     if (!passages[currentPassageIndex]?.questions[currentQuestionIndex]) return;
+    skipInProgress.current = true;
+    
     const passage = passages[currentPassageIndex];
     const question = passage.questions[currentQuestionIndex];
     const newAnswers = [...answers, { questionId: question.id, selectedAnswer: -1, isCorrect: false }];
     setAnswers(newAnswers);
-    setIsAnswered(true);
     
-    if (currentQuestionIndex + 1 < passage.questions.length) {
-      setCurrentQuestionIndex(prev => prev + 1);
+    const isLastQuestionInPassage = currentQuestionIndex + 1 >= passage.questions.length;
+    const isLastPassage = currentPassageIndex + 1 >= passages.length;
+    
+    if (!isLastQuestionInPassage) {
+      // More questions in this passage
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedOption(null);
-      setIsAnswered(false);
-    } else if (currentPassageIndex + 1 < passages.length) {
-      setCurrentPassageIndex(prev => prev + 1);
+    } else if (!isLastPassage) {
+      // Move to next passage
+      setCurrentPassageIndex(currentPassageIndex + 1);
       setCurrentQuestionIndex(0);
       setHasPlayedOnce(false);
       setSelectedOption(null);
-      setIsAnswered(false);
       setPhase('listening');
     } else {
-      // All done
+      // All done — show results and save
       const totalCorrect = newAnswers.filter(a => a.isCorrect).length;
       const totalQ = passages.reduce((sum, p) => sum + p.questions.length, 0);
       setScore(Math.round((totalCorrect / totalQ) * 30));
       setPhase('results');
       submitTrialScore(newAnswers);
     }
+    
+    skipInProgress.current = false;
   };
 
   // ─── Next Question ───────────────────────────────────────
