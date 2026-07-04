@@ -22,14 +22,25 @@ import { SPEAKING_LEVELS, SPEAKING_CONFIG, MODULE_INFO } from '@/lib/constants';
 
 import { READ_ALOUD_PASSAGES, INDEPENDENT_PROMPTS, INTEGRATED_PROMPTS, SHADOWING_TEXTS, getSpeakingSet } from '@/data/speaking-prompts';
 
-// Select random set for this session
-const sessionSet = getSpeakingSet();
-const readAloudPassages = sessionSet.readAloud;
-const speakingPrompts = [
-  sessionSet.independent.prompt,
-  ...INDEPENDENT_PROMPTS.filter(p => p.id !== sessionSet.independent.id).slice(0, 2).map(p => p.prompt),
+// Speaking set is generated fresh per component mount (supports retakes)
+let _sessionSet = getSpeakingSet();
+let readAloudPassages = _sessionSet.readAloud;
+let speakingPrompts = [
+  _sessionSet.independent.prompt,
+  ...INDEPENDENT_PROMPTS.filter(p => p.id !== _sessionSet.independent.id).slice(0, 2).map(p => p.prompt),
 ];
-const shadowingTexts = sessionSet.shadowing;
+let shadowingTexts = _sessionSet.shadowing;
+
+// Regenerate on page visibility change (handles retake via "Begin Trial" button)
+function regenerateSpeakingSet() {
+  _sessionSet = getSpeakingSet();
+  readAloudPassages = _sessionSet.readAloud;
+  speakingPrompts = [
+    _sessionSet.independent.prompt,
+    ...INDEPENDENT_PROMPTS.filter(p => p.id !== _sessionSet.independent.id).slice(0, 2).map(p => p.prompt),
+  ];
+  shadowingTexts = _sessionSet.shadowing;
+}
 
 
 // ─── Types ─────────────────────────────────────────────────
@@ -550,7 +561,7 @@ export default function SpeakingAssessmentPage() {
                           <p className="text-[#8b7355] text-xs mt-1">Please wait before retaking this trial.</p>
                         </div>
                       ) : (
-                        <ImperialButton variant="primary" size="lg" onClick={() => setPhase('read_aloud')}>
+                        <ImperialButton variant="primary" size="lg" onClick={() => { regenerateSpeakingSet(); setPhase('read_aloud'); }}>
                         Begin the Trial <ChevronRight className="w-5 h-5 ml-2 inline" />
                       </ImperialButton>
                       )}

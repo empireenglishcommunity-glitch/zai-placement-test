@@ -298,6 +298,14 @@ export default function ListeningAssessmentPage() {
                       </ImperialButton>
                     </motion.div>
                   )}
+                  {/* Skip button — always visible so student is never stuck */}
+                  {!hasPlayedOnce && (
+                    <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 5 }}>
+                      <button onClick={() => { setHasPlayedOnce(true); }} className="text-[#8b7355] text-xs hover:text-[#c9a84c] transition-colors underline">
+                        Skip audio / تخطي الصوت
+                      </button>
+                    </motion.div>
+                  )}
                 </MetallicCard>
               </GlowingBorder>
             </motion.div>

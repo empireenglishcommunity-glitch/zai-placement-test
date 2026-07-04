@@ -191,6 +191,16 @@ export default function WritingAssessmentPage() {
     } catch (e) { console.error('[Writing] Submit failed:', e); }
   };
 
+  // Auto-advance when timer expires — student never gets stuck
+  useEffect(() => {
+    if (timeLeft !== 0) return;
+    if (phase === 'task1') {
+      handleSubmitTask1();
+    } else if (phase === 'task2') {
+      handleSubmitTask2();
+    }
+  }, [timeLeft]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <WritingUI
       phase={phase}
