@@ -125,7 +125,16 @@ sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN readingScore REAL;" 2>/de
 
 ---
 
-## VERIFICATION CHECKLIST (run after ANY deploy):
+## FIX #11: Retake Updates Dashboard Score
+
+**Date:** 2026-07-04
+**File:** `src/app/api/dashboard/route.ts` + `src/app/assessment/page.tsx`
+**Root Cause:** Completed trials showed disabled "Trial Completed" button — students couldn't retake. Also, dashboard loop could overwrite newest score with older ones.
+**Fix:**
+- Assessment hub: "Trial Completed" button → "Retake Trial" link (clickable, goes to trial page)
+- Dashboard API: Added `moduleProgress.X.status !== 'completed'` guard — only FIRST (newest) score is used, older scores don't overwrite
+- Submit API creates new assessment record on retake (existing one is 'completed')
+**Verification:** Retake a trial → dashboard shows NEW score (not old one).
 
 ```bash
 # 1. Check container is running
