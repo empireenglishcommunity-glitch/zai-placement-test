@@ -1,18 +1,16 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 
-// Simple hash for MVP - replace with bcrypt in production
+const BCRYPT_SALT_ROUNDS = 12;
+
 async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + 'empire-salt-2024');
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 }
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const computedHash = await hashPassword(password);
-  return computedHash === hash;
+  return bcrypt.compare(password, hash);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -63,7 +61,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || 'empire-secret-key-change-in-production',
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 export { hashPassword, verifyPassword };
