@@ -218,6 +218,18 @@ sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN totalScore REAL;" 2>/dev/
 sqlite3 "$DB_PATH" "ALTER TABLE assessments ADD COLUMN cefrLevel TEXT;" 2>/dev/null || true
 echo "✅ TOEFL score columns verified"
 
+# ─── Force-reset legacy SHA-256 password hashes (companion to PR #20) ───
+# bcrypt hashes always start with "$2" (e.g. $2a$, $2b$, $2y$). Any
+# passwordHash that doesn't match this prefix predates the bcrypt
+# migration and must be invalidated so the user is forced to reset
+# their password. This UPDATE is idempotent: once a hash is set to
+# 'RESET_REQUIRED' it also starts with 'R', not '$2', so re-running
+# this on every deploy would re-mark it — we explicitly exclude the
+# marker value itself to keep this safe to run on every startup.
+echo "🔐 Checking for legacy (non-bcrypt) password hashes..."
+sqlite3 "$DB_PATH" "UPDATE users SET passwordHash = 'RESET_REQUIRED' WHERE passwordHash IS NOT NULL AND passwordHash != 'RESET_REQUIRED' AND passwordHash NOT LIKE '\$2%';" 2>/dev/null || true
+echo "✅ Legacy password hashes invalidated (if any)"
+
 # Start the server
 echo "🚀 Starting server on port ${PORT:-3000}..."
 exec node server.js
