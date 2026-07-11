@@ -57,3 +57,9 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Local database file
+db/custom.db
+
+# Local dev process id
+.zscripts/dev.pid
